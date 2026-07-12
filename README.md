@@ -1,14 +1,8 @@
 # VDisplay
 
-Windows Virtual Desktop is designed for organizing workspaces.
-
-**Virtual monitors for Windows** — not virtual desktops.
+> **Virtual monitors for Windows — not virtual desktops.**
 
 VDisplay adds real virtual monitors that Windows sees in **Settings → Display**. Move windows with `Win+Arrow`, share a single half-screen in Meet/Teams, or extend your desktop with empty VMs.
-
-A virtual monitor system adds real displays to the OS and unlocks broader scenarios — especially screen sharing, streaming, simulation, and multi-app layouts.
-
-The preview app lets you view and manage all virtual monitors from one screen, which sets this approach apart from classic virtual desktops.
 
 | Language | Docs |
 |----------|------|
@@ -17,17 +11,44 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 
 ---
 
-## Difference from Windows Virtual Desktop
+## Why VDisplay?
 
-  Feature                                 Windows Virtual Desktop   Virtual Monitor System
-  --------------------------------------- ------------------------ -----------------------
-  Looks like a real monitor                  ❌                       ✅
-  Appears in Windows Display Settings        ❌                       ✅
-  Apps can move to another monitor           ❌                       ✅
-  Teams / OBS can share that screen          ❌                       ✅
-  All screens can be active at once          ❌                       ✅
-  Separate resolution per monitor            ❌                       ✅
-  Workspace organization                     ✅                       ✅
+**Have you ever wanted to:**
+
+- Share only part of your ultrawide monitor in Teams or Meet?
+- Create multiple virtual monitors without buying extra displays?
+- Share a single virtual screen instead of your whole desktop?
+- Get extra monitors without hardware?
+- Build multi-monitor layouts for simulators, trading or development?
+
+**VDisplay makes all of these possible.**
+
+Unlike Windows Virtual Desktop, VDisplay adds real virtual monitors recognized by Windows in Display Settings.
+
+The preview app lets you view and manage all virtual monitors from one screen, which sets this approach apart from classic virtual desktops.
+
+---
+
+## Perfect for
+
+- **Ultrawide screen sharing**
+- **Multiple virtual monitors**
+- **Share part of screen in Teams / Meet / Zoom**
+- **Extra monitors without hardware**
+
+---
+
+## Why not Windows Virtual Desktop?
+
+| Feature | Windows Virtual Desktop | VDisplay |
+|---------|-------------------------|----------|
+| Real monitor | ❌ | ✅ |
+| Display Settings | ❌ | ✅ |
+| Apps can move to another monitor | ❌ | ✅ |
+| Teams / OBS sharing | ❌ | ✅ |
+| All screens active at once | ❌ | ✅ |
+| Independent resolutions | ❌ | ✅ |
+| Workspace organization | ✅ | ✅ |
 
 ---
 
@@ -45,7 +66,7 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 
 ---
 
-### Virtual Monitor System
+### Virtual Monitor System (VDisplay)
 
 - Truly adds new monitors to Windows.
 - They appear as Monitor 2, 3, 4… in Display Settings.
@@ -96,7 +117,7 @@ Full guide: [docs/DEVELOPER.md](docs/DEVELOPER.md)
 
 **Personal / non-commercial use: free.**  
 **Commercial use: paid license required.**  
-Individuals who like the project can optionally [buy a coffee] .
+Individuals who like the project can optionally [buy a coffee](https://www.buymeacoffee.com/warreis).
 
 See [LICENSE](LICENSE) for full terms. Commercial inquiries: open a GitHub Issue or contact the author.
 
