@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "monitorCount": 4,
+  "splitMode": "desktop",
+  "preferredModeIndex": 0,
+  "modes": [
+    { "width": 1280, "height": 1080, "refreshRate": 60 },
+    { "width": 1920, "height": 1080, "refreshRate": 60 },
+    { "width": 1600, "height": 900, "refreshRate": 60 },
+    { "width": 1024, "height": 768, "refreshRate": 60 },
+    { "width": 720, "height": 720, "refreshRate": 60 }
+  ]
+}

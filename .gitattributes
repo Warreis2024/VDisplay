@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.{cmd,bat,ps1} text eol=crlf
+*.{cs,cpp,h,hpp,c,md,json,xml,yml,yaml,props,targets,sln,csproj,vcxproj,inf,rc,def} text
+*.png binary
+*.jpg binary
+*.ico binary
+*.dll binary
+*.exe binary
+*.pdb binary
+*.cat binary

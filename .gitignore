@@ -1,0 +1,84 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+**/x64/
+**/ARM64/
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.iobj
+*.ipdb
+*.log
+*.tlog
+*.lastbuildstate
+*.recipe
+
+# Keep scripts / launcher (override *.exe)
+!Start-VDisplay.cmd
+
+# Driver packages / signing artifacts
+*.cat
+*.sys
+*.cer
+*.pfx
+*.snk
+
+# Visual Studio / IDEs
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+.idea/
+*.code-workspace
+
+# NuGet
+**/packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+
+# Test / local
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local secrets / env
+.env
+.env.*
+*.local.json
+appsettings.*.local.json
+
+# Large local installers (do not publish)
+wdksetup.exe
+WindowsAppRuntimeInstall*.exe
+*.msi
+*.iso
+
+# Reference trees / caches
+_refs/
+**/node_modules/
+
+# Runtime user config (machine-local)
+# Keep example only
+config/vdisplay.user.json
+
+# Cursor / agent local
+.cursor/
+agent-transcripts/

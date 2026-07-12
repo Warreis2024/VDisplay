@@ -1,0 +1,87 @@
+VDisplay License
+================
+
+Copyright (c) 2026 Warreis (and contributors)
+
+Summary (not a substitute for the full text below)
+--------------------------------------------------
+- Personal / non-commercial use: FREE
+- Commercial use: PAID LICENSE REQUIRED
+- Optional support: Buy Me a Coffee — https://www.buymeacoffee.com/warreis
+- Source is published on GitHub for transparency and contribution
+
+
+1. Definitions
+--------------
+"Software" means this repository, including source code, scripts, drivers,
+documentation, and binaries you build from it.
+
+"Personal Use" means use by a natural person for private, educational, research,
+or hobby purposes, not on behalf of a business and not for paid products/services.
+
+"Commercial Use" means any use by or for a company, organization, government
+entity, or freelance/contract work where the Software is used to deliver paid
+products or services, or is deployed on company-owned devices as part of work.
+
+
+2. Personal / Non-Commercial Grant
+---------------------------------
+Subject to this License, you may freely use, copy, modify, and run the Software
+for Personal Use without payment.
+
+You may redistribute modified or unmodified copies for Personal Use only if you
+include this License and do not charge a fee for the Software itself.
+
+
+3. Commercial Use
+-----------------
+Commercial Use is NOT permitted under the free grant above.
+
+To use the Software commercially you must obtain a paid commercial license from
+the copyright holder before such use.
+
+Contact: open a GitHub Issue titled "Commercial license" or use the contact
+method listed on the repository.
+
+Until a commercial license is granted in writing, Commercial Use is prohibited.
+
+
+4. Contributions
+----------------
+By submitting a pull request or patch, you agree that your contribution is
+licensed under the same terms as this License, and you have the right to submit
+it.
+
+
+5. No Trademark Rights
+----------------------
+This License does not grant rights to use the name "VDisplay", logos, or related
+marks except as needed to describe the origin of the Software.
+
+
+6. Disclaimer
+-------------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+7. Driver / Test Signing Notice
+-------------------------------
+Installing unsigned or test-signed drivers may require enabling Windows test
+signing and can affect system security. You use this at your own risk.
+
+
+8. Optional Support
+-------------------
+Personal users who wish to support development may tip via:
+https://www.buymeacoffee.com/warreis
+
+Tips do not grant a commercial license.
+
+
+End of License

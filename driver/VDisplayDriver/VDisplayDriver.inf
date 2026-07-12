@@ -1,0 +1,68 @@
+;
+; VDisplayDriver.inf
+;
+
+[Version]
+PnpLockDown=1
+Signature="$Windows NT$"
+ClassGUID = {4D36E968-E325-11CE-BFC1-08002BE10318}
+Class = Display
+ClassVer = 2.0
+Provider=%ManufacturerName%
+CatalogFile=vdisplaydriver.cat
+DriverVer=07/11/2026,2.25.1.0
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64.10.0...19041
+
+[Standard.NTamd64.10.0...19041]
+%DeviceName%=MyDevice_Install, Root\VDisplayDriver
+%DeviceName%=MyDevice_Install, VDisplayDriver
+
+[SourceDisksFiles]
+VDisplayDriver.dll=1
+
+[SourceDisksNames]
+1 = %DiskName%
+
+[MyDevice_Install.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles=UMDriverCopy
+
+[MyDevice_Install.NT.hw]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+AddReg = MyDevice_HardwareDeviceSettings
+
+[MyDevice_HardwareDeviceSettings]
+HKR,, "UpperFilters",  %REG_MULTI_SZ%, "IndirectKmd"
+HKR, "WUDF", "DeviceGroupId", %REG_SZ%, "VDisplayDriverGroup"
+
+[MyDevice_Install.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+[MyDevice_Install.NT.Wdf]
+UmdfService=VDisplayDriver,VDisplayDriver_Install
+UmdfServiceOrder=VDisplayDriver
+UmdfKernelModeClientPolicy = AllowKernelModeClients
+
+[VDisplayDriver_Install]
+UmdfLibraryVersion=2.25.0
+ServiceBinary=%12%\UMDF\VDisplayDriver.dll
+UmdfExtensions = IddCx0102
+
+[DestinationDirs]
+UMDriverCopy=12,UMDF
+
+[UMDriverCopy]
+VDisplayDriver.dll
+
+[Strings]
+ManufacturerName="VDisplay"
+DiskName = "VDisplay Driver Installation Disk"
+DeviceName="VDisplay Virtual Monitor Device"
+
+REG_MULTI_SZ  = 0x00010000
+REG_SZ        = 0x00000000
