@@ -18,15 +18,17 @@ Windows her sanal monitörü (VM) **gerçek ekran** gibi görür:
 
 ## İlk kurulum (bir kez)
 
-1. Bu makinede **Visual Studio 2022 + WDK** kurulu olsun (`.\scripts\check-wdk.ps1`)
-2. Proje klasöründe **`Start-VDisplay.cmd`** çift tıkla  
-3. **İlk kurulum (sürücü)** → yönetici onayını ver  
-4. **Test Mode** yazısı çıktıysa bilgisayarı **yeniden başlat**, Yardımcı’yı aç, **İlk kurulum**’u bir kez daha çalıştır (sürücü kurulum kodu **0** olmalı)  
-5. **Kullanım modu** seç → **Ayarları kaydet** → **1. Başlat** (servis bağlanana kadar bekler)  
-6. **Ekran ayarları**’nda yeni monitörler görünmeli → yan yana yerleştir  
-7. Ancak ondan sonra **Tray önizleme** (fiziksel ekranlar VM değildir)
+1. Projeyi indir / `git clone` (içinde **`dist\driver`** hazır sürücü paketi olmalı)  
+2. **`Start-VDisplay.cmd`** çift tıkla  
+3. **0. İlk kurulum** → yönetici onayını ver  
+4. **Test Mode** yazısı çıktıysa bilgisayarı **yeniden başlat**, Yardımcı’yı aç, **0. İlk kurulum**’u bir kez daha çalıştır (kurulum kodu **0** olmalı)  
+5. **Kullanım modu** seç → **6. Ayarları kaydet** → **1. Başlat**  
+6. **5. Ekran ayarları**’nda yeni monitörler → yan yana yerleştir  
+7. **2. Tray aç**
 
-`install-driver` kod=1 ise genelde: reboot yapılmamış, sürücü derlenmemiş (WDK yok) veya paket yolu yanlış.
+> Son kullanıcıda **Visual Studio / WDK gerekmez**. Sürücü derleme yalnızca geliştiriciler içindir (`publish-driver-package.ps1`).
+
+`install-driver` kod=1 ise genelde: reboot yapılmamış veya yönetici onayı verilmemiş.
 
 ---
 

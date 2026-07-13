@@ -25,12 +25,22 @@ ARM64/
 # Keep scripts / launcher (override *.exe)
 !Start-VDisplay.cmd
 
-# Driver packages / signing artifacts
+# Ship prebuilt test-signed driver for end users
+!dist/
+!dist/driver/
+!dist/driver/**
+
+# Driver packages / signing artifacts (except dist)
 *.cat
 *.sys
 *.cer
 *.pfx
 *.snk
+!dist/driver/*.cat
+!dist/driver/*.dll
+!dist/driver/*.inf
+!dist/driver/*.cer
+!dist/driver/*.md
 
 # Visual Studio / IDEs
 .vs/

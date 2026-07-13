@@ -143,7 +143,9 @@ if (-not $msbuild) {
 
 Write-Host "WDK: $wdkTargets" -ForegroundColor DarkGray
 Write-Host "MSBuild: $msbuild"
-& $msbuild $project /p:Configuration=$Configuration /p:Platform=$Platform /m
+# SignMode=Off: yerel WDKTestCert private-key sorunlarinda derleme silinmesin.
+# Imza: .\scripts\publish-driver-package.ps1
+& $msbuild $project /p:Configuration=$Configuration /p:Platform=$Platform /p:SignMode=Off /m
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

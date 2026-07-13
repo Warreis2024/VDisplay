@@ -18,11 +18,17 @@ Windows treats each virtual monitor (VM) as a **real display**:
 
 ## First-time setup (once)
 
-1. Double-click **`Start-VDisplay.cmd`** in the project folder  
-2. Click **First-time setup (driver)** → approve the admin prompt  
-3. If Windows shows **Test Mode**, reboot, open Helper again, run **First-time setup** once more  
-4. Choose a **usage mode** → **Save settings** → **1. Start**  
-5. Open **Display settings** → place VMs **beside** your physical monitors (not stacked)
+1. Download / clone the repo (must include **`dist\driver`** prebuilt package)  
+2. Double-click **`Start-VDisplay.cmd`**  
+3. **0. First-time setup** → approve admin  
+4. If **Test Mode** appears, reboot, open Helper, run **0. First-time setup** again  
+5. Choose mode → **6. Save settings** → **1. Start**  
+6. **5. Display settings** → place VMs beside physical monitors  
+7. **2. Open Tray**
+
+> End users do **not** need Visual Studio / WDK. Driver builds are developer-only (`publish-driver-package.ps1`).
+
+`install-driver` exit 1 usually means: no reboot yet, or admin prompt denied.
 
 ---
 

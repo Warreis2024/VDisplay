@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $packageDir = Join-Path $root "driver\VDisplayDriver\$Platform\$Configuration\VDisplayDriver"
+$distDir = Join-Path $root "dist\driver"
 
 function Test-Admin {
     return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -16,22 +17,18 @@ function Test-TestSigningEnabled {
     return ($output -match "testsigning\s+Yes")
 }
 
-function Install-WdkTestCertificate {
-    $cert = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
-        Where-Object { $_.Subject -like "*WDKTestCert*" } |
-        Select-Object -First 1
+function Install-PackageCertificate {
+    param([string]$Dir)
 
-    if (-not $cert) {
-        Write-Host "UYARI: WDKTestCert bulunamadi. Once build-driver.ps1 calistirin." -ForegroundColor Yellow
+    $cer = Join-Path $Dir "VDisplayTestCert.cer"
+    if (-not (Test-Path $cer)) {
+        Write-Host "UYARI: Pakette VDisplayTestCert.cer yok." -ForegroundColor Yellow
         return $false
     }
 
-    $cerPath = Join-Path $env:TEMP "WDKTestCert.cer"
-    Export-Certificate -Cert $cert -FilePath $cerPath -Force | Out-Null
-
-    Write-Host "Test sertifikasi kuruluyor..." -ForegroundColor Cyan
-    certutil -addstore Root $cerPath | Out-Null
-    certutil -addstore TrustedPublisher $cerPath | Out-Null
+    Write-Host "Test sertifikasi kuruluyor: $cer" -ForegroundColor Cyan
+    certutil -addstore Root $cer | Out-Null
+    certutil -addstore TrustedPublisher $cer | Out-Null
     return $true
 }
 
@@ -64,14 +61,21 @@ if (-not (Test-TestSigningEnabled)) {
     exit 1
 }
 
-$package = Find-DriverPackage -Dir $packageDir
+# Son kullanici: dist\driver (hazir paket). Gelistirici: build cikti klasoru.
+$package = Find-DriverPackage -Dir $distDir
 if (-not $package) {
-    Write-Host "HATA: Surucu paketi bulunamadi: $packageDir" -ForegroundColor Red
-    Write-Host "Once: .\scripts\build-driver.ps1"
+    $package = Find-DriverPackage -Dir $packageDir
+}
+
+if (-not $package) {
+    Write-Host "HATA: Surucu paketi bulunamadi." -ForegroundColor Red
+    Write-Host "  Beklenen: $distDir"
+    Write-Host "  (veya gelistirici build): $packageDir"
+    Write-Host "Gelistirici: .\scripts\publish-driver-package.ps1"
     exit 1
 }
 
-Install-WdkTestCertificate | Out-Null
+Install-PackageCertificate -Dir $package.Dir | Out-Null
 
 Write-Host "Paket: $($package.Dir)" -ForegroundColor Green
 Write-Host "pnputil ile kuruluyor..."
@@ -88,6 +92,4 @@ if ($LASTEXITCODE -ne 0 -or ($pnputilOutput -match "Failed|basarisiz")) {
 
 Write-Host ""
 Write-Host "Surucu depoya eklendi." -ForegroundColor Green
-Write-Host "Sonraki adim:"
-Write-Host "  dotnet run --project src\VDisplay.Service"
-Write-Host "  dotnet run --project src\VDisplay.App  -> Surucuyu Baslat"
+Write-Host "Sonraki adim: Yardimci -> 1. Baslat"

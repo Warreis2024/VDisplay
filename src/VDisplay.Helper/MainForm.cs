@@ -269,40 +269,32 @@ internal sealed class MainForm : Form
         }
 
         Log("ÖNEMLİ: Test Mode yeni açıldıysa şimdi bilgisayarı YENİDEN BAŞLAT.");
-        Log("Yeniden başladıktan sonra Yardımcı → «İlk kurulum» tekrar.");
+        Log("Yeniden başladıktan sonra Yardımcı → «0. İlk kurulum» tekrar.");
 
-        // 2) Driver package must exist (WDK + build)
-        var packageDir = Path.Combine(root, "driver", "VDisplayDriver", "x64", "Release", "VDisplayDriver");
+        // Hazır paket (dist/driver) — son kullanıcıda derleme YOK
+        var packageDir = Path.Combine(root, "dist", "driver");
         var inf = Path.Combine(packageDir, "VDisplayDriver.inf");
         var dll = Path.Combine(packageDir, "VDisplayDriver.dll");
         if (!File.Exists(inf) || !File.Exists(dll))
         {
-            Log("Sürücü paketi yok — derleniyor (WDK gerekli, 1–5 dk)...");
-            var buildCode = await RunScriptAsync(Path.Combine(root, "scripts", "build-driver.ps1"), elevate: false);
-            if (buildCode != 0 || !File.Exists(dll))
-            {
-                Log("HATA: Sürücü derlenemedi. Bu makinede Visual Studio 2022 + WDK kurulu olmalı.");
-                Log($"Beklenen paket: {packageDir}");
-                Log("Manuel: .\\scripts\\build-driver.ps1");
-                return;
-            }
-
-            Log("Sürücü derlendi.");
-        }
-        else
-        {
-            Log($"Sürücü paketi bulundu: {packageDir}");
+            Log("HATA: Hazır sürücü paketi yok.");
+            Log($"Beklenen: {packageDir}");
+            Log("Son kullanıcı: GitHub sürümünden / repo’dan dist\\driver klasörünü indir.");
+            Log("Geliştirici: .\\scripts\\publish-driver-package.ps1");
+            return;
         }
 
-        // 3) Install
+        Log($"Sürücü paketi: {packageDir}");
+
+        // Kurulum (pnputil + test sertifikası)
         var installCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "install-driver.ps1"));
         if (installCode != 0)
         {
             Log("HATA: Sürücü kurulumu başarısız (kod=" + installCode + ").");
             Log("Tipik nedenler:");
             Log("  • Yeniden başlatılmadı (testsigning henüz aktif değil)");
-            Log("  • Paket/imza eksik — build-driver.ps1 çalıştır");
-            Log("  • Yönetici PowerShell'de: .\\scripts\\install-driver.ps1");
+            Log("  • Yönetici onayı verilmedi");
+            Log("  • Yönetici PowerShell: .\\scripts\\install-driver.ps1");
             return;
         }
 
