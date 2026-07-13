@@ -31,34 +31,46 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 4,
+            RowCount = 3,
             Padding = new Padding(12)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
 
-        // --- Büyük aksiyonlar (numaralı) ---
-        var actions = new FlowLayoutPanel
+        // 2×4 eşit buton ızgarası (0→7)
+        var actions = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            WrapContents = true,
-            AutoScroll = true
+            ColumnCount = 4,
+            RowCount = 2,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
         };
-        // Sıra: 0 → 1 → 2 (acemi akışı)
-        actions.Controls.Add(BigButton("0. İlk kurulum", Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync(), width: 150));
-        actions.Controls.Add(BigButton("1. Başlat", Color.FromArgb(46, 125, 50), async (_, _) => await StartAllAsync()));
-        actions.Controls.Add(BigButton("2. Tray aç", Color.FromArgb(25, 118, 210), (_, _) => StartTray()));
-        actions.Controls.Add(BigButton("3. Tray kapat", Color.FromArgb(13, 71, 161), (_, _) => StopTray()));
-        actions.Controls.Add(BigButton("4. Durdur", Color.FromArgb(198, 40, 40), (_, _) => StopAll()));
-        actions.Controls.Add(BigButton("5. Ekran ayarları", Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings(), width: 150));
-        root.Controls.Add(actions, 0, 0);
+        for (var c = 0; c < 4; c++)
+        {
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+        }
 
-        var setup = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = true };
-        setup.Controls.Add(BigButton("6. Ayarları kaydet", Color.FromArgb(0, 105, 92), (_, _) => SaveSettings(), width: 150));
-        setup.Controls.Add(BigButton("7. JSON klasörü", Color.Gray, (_, _) => OpenConfigFolder()));
-        root.Controls.Add(setup, 0, 1);
+        actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+        actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+
+        void Place(int col, int row, Button btn)
+        {
+            btn.Dock = DockStyle.Fill;
+            btn.Margin = new Padding(4);
+            actions.Controls.Add(btn, col, row);
+        }
+
+        Place(0, 0, BigButton("0. İlk kurulum", Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync()));
+        Place(1, 0, BigButton("1. Başlat", Color.FromArgb(46, 125, 50), async (_, _) => await StartAllAsync()));
+        Place(2, 0, BigButton("2. Tray aç", Color.FromArgb(25, 118, 210), (_, _) => StartTray()));
+        Place(3, 0, BigButton("3. Tray kapat", Color.FromArgb(13, 71, 161), (_, _) => StopTray()));
+        Place(0, 1, BigButton("4. Durdur", Color.FromArgb(198, 40, 40), (_, _) => StopAll()));
+        Place(1, 1, BigButton("5. Ekran ayarları", Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings()));
+        Place(2, 1, BigButton("6. Ayarları kaydet", Color.FromArgb(0, 105, 92), (_, _) => SaveSettings()));
+        Place(3, 1, BigButton("7. JSON klasörü", Color.Gray, (_, _) => OpenConfigFolder()));
+        root.Controls.Add(actions, 0, 0);
 
         // --- Ayar paneli ---
         var settings = new GroupBox { Text = "Kullanıcı ayarları (JSON)", Dock = DockStyle.Fill, Padding = new Padding(10) };
@@ -115,7 +127,7 @@ internal sealed class MainForm : Form
         settingsLayout.Controls.Add(_modesList, 1, 0);
         settingsLayout.SetRowSpan(_modesList, 3);
         settings.Controls.Add(settingsLayout);
-        root.Controls.Add(settings, 0, 2);
+        root.Controls.Add(settings, 0, 1);
 
         _log = new TextBox
         {
@@ -127,14 +139,14 @@ internal sealed class MainForm : Form
         };
         var logBox = new GroupBox { Text = "Durum", Dock = DockStyle.Fill };
         logBox.Controls.Add(_log);
-        root.Controls.Add(logBox, 0, 3);
+        root.Controls.Add(logBox, 0, 2);
 
         Controls.Add(root);
         Log($"Ayar dosyası: {UserConfigStore.JsonPath}");
         Log("Sıra: 0 İlk kurulum → 1 Başlat → 2 Tray aç | 3 Tray kapat | 4 Durdur");
     }
 
-    private static Button BigButton(string text, Color back, EventHandler onClick, int width = 130)
+    private static Button BigButton(string text, Color back, EventHandler onClick)
     {
         var btn = new Button
         {
@@ -142,9 +154,8 @@ internal sealed class MainForm : Form
             BackColor = back,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Height = 42,
-            Width = width,
-            Margin = new Padding(0, 0, 8, 8)
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            UseVisualStyleBackColor = false
         };
         btn.FlatAppearance.BorderSize = 0;
         btn.Click += onClick;
