@@ -30,7 +30,7 @@
   "log_restart_for_modes": "Restart the driver (Stop → Start) or First setup for Windows to see new resolutions.",
   "log_setup_start": "First-time setup starting (admin required)...",
   "log_no_repo": "ERROR: Project root not found (run Start-VDisplay.cmd next to VDisplay.sln).",
-  "log_testsign_fail": "ERROR: Could not enable test signing. In admin PowerShell: bcdedit /set {current} testsigning on — disable Secure Boot if needed.",
+  "log_testsign_fail": "ERROR: Could not enable test signing. Cause: Secure Boot is ON — disable Secure Boot in BIOS/UEFI, save, boot Windows, then run «0. First setup» again.",
   "log_reboot": "IMPORTANT: If Test Mode was just enabled, REBOOT the PC now.",
   "log_reboot_again": "After reboot, confirm desktop shows «Test Mode», then Helper → «0. First setup» again.",
   "log_reboot_required_now": "STOP: Test Mode is not active yet. REBOOT now (admin alone is not enough).",

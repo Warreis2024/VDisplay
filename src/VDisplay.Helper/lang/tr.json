@@ -30,7 +30,7 @@
   "log_restart_for_modes": "Çözünürlüklerin Windows'ta görünmesi için Durdur → Başlat veya İlk kurulum.",
   "log_setup_start": "İlk kurulum başlıyor (yönetici gerekir)...",
   "log_no_repo": "HATA: Proje kökü bulunamadı (VDisplay.sln yanında Start-VDisplay.cmd çalıştır).",
-  "log_testsign_fail": "HATA: Test imzalama açılamadı. Yönetici PowerShell’de dene: bcdedit /set {current} testsigning on — Secure Boot kapalı olsun.",
+  "log_testsign_fail": "HATA: Test imzalama açılamadı. Neden: Secure Boot (Güvenli Önyükleme) açık — BIOS’ta Secure Boot’u KAPAT, kaydet, Windows’a gir, sonra «0. İlk kurulum» tekrar.",
   "log_reboot": "ÖNEMLİ: Test Mode yeni açıldıysa şimdi bilgisayarı YENİDEN BAŞLAT.",
   "log_reboot_again": "Yeniden başladıktan sonra masaüstünde «Test Mode» yazısını gör, sonra Yardımcı → «0. İlk kurulum» tekrar.",
   "log_reboot_required_now": "DUR: Test Mode henüz aktif değil. Şimdi bilgisayarı YENİDEN BAŞLAT (yönetici olsan da reboot şart).",

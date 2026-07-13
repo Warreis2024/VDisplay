@@ -18,17 +18,21 @@ Windows treats each virtual monitor (VM) as a **real display**:
 
 ## First-time setup (once)
 
-1. Download / clone the repo (must include **`dist\driver`** prebuilt package)  
-2. Double-click **`Start-VDisplay.cmd`**  
-3. **0. First-time setup** → approve admin  
-4. If **Test Mode** appears, reboot, open Helper, run **0. First-time setup** again  
+**Prerequisite:** In BIOS/UEFI set **Secure Boot = Disabled**.  
+If Secure Boot is on, Windows blocks test-signed drivers (*protected by Secure Boot policy*).
+
+1. Download / clone (must include **`dist\driver`** and **`dist\native`**)  
+2. Run **`Start-VDisplay.cmd`** (preferably **as Administrator**)  
+3. **0. First-time setup** → approve UAC  
+4. If asked, **reboot** → confirm desktop **Test Mode** → run **0. First setup** again  
 5. Choose mode → **6. Save settings** → **1. Start**  
-6. **5. Display settings** → place VMs beside physical monitors  
+6. **5. Display settings** → place VMs side by side  
 7. **2. Open Tray**
 
-> End users do **not** need Visual Studio / WDK. Driver builds are developer-only (`publish-driver-package.ps1`).
+> End users do **not** need Visual Studio / WDK.
 
-`install-driver` exit 1 usually means: no reboot yet, or admin prompt denied.
+`bcdedit` / test-signing errors → disable **Secure Boot** first.  
+`install-driver` exit 1 → usually no reboot yet.
 
 ---
 

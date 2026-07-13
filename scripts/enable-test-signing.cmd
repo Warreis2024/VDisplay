@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-REM Cikis: 0=cekirdek/BCD hazir say (Helper C# kontrol eder), 2=BCD yazildi reboot lazim, 1=hata
+REM Exit: 0=ok, 2=BCD written reboot needed, 1=error / Secure Boot
 set "LOG=%ProgramData%\VDisplay\enable-test-signing.log"
 set "BCDEDIT=%SystemRoot%\System32\bcdedit.exe"
 if exist "%SystemRoot%\Sysnative\bcdedit.exe" set "BCDEDIT=%SystemRoot%\Sysnative\bcdedit.exe"
@@ -22,12 +22,23 @@ if not exist "%BCDEDIT%" (
   exit /b 1
 )
 
-REM BCD'de zaten Yes mi?
+REM Secure Boot check
+powershell -NoProfile -Command "try { if (Confirm-SecureBootUEFI) { exit 11 } else { exit 0 } } catch { exit 0 }" >nul 2>&1
+if errorlevel 11 (
+  echo [%TIME%] HATA: Secure Boot / Guvenli Onyukleme ACIK.>> "%LOG%"
+  echo [%TIME%] Test imzali surucu icin BIOS/UEFI'de Secure Boot KAPATILMALI.>> "%LOG%"
+  echo [%TIME%] Adimlar:>> "%LOG%"
+  echo [%TIME%]   1^) PC yeniden baslat -^> BIOS/UEFI ^(Del/F2/F10^)>> "%LOG%"
+  echo [%TIME%]   2^) Secure Boot = Disabled>> "%LOG%"
+  echo [%TIME%]   3^) Kaydet, Windows'a gir>> "%LOG%"
+  echo [%TIME%]   4^) Yardimci -^> 0. Ilk kurulum>> "%LOG%"
+  exit /b 1
+)
+
 "%BCDEDIT%" /enum {current} > "%TEMP%\vdisplay-bcd.txt" 2>&1
 findstr /I /C:"testsigning" "%TEMP%\vdisplay-bcd.txt" | findstr /I "Yes" >nul
 if not errorlevel 1 (
-  echo [%TIME%] BCD testsigning zaten Yes. Reboot sonrasi cekirdek aktif olmali.>> "%LOG%"
-  echo [%TIME%] Bilgisayari YENIDEN BASLAT, sonra 0. Ilk kurulum tekrar.>> "%LOG%"
+  echo [%TIME%] BCD testsigning zaten Yes. Yeniden baslat, sonra 0. Ilk kurulum.>> "%LOG%"
   exit /b 2
 )
 
@@ -39,11 +50,9 @@ if errorlevel 1 (
 )
 if errorlevel 1 (
   echo [%TIME%] HATA: bcdedit basarisiz.>> "%LOG%"
-  echo [%TIME%] Elle Yonetici CMD: bcdedit /set {current} testsigning on>> "%LOG%"
-  echo [%TIME%] Secure Boot aciksa BIOS'ta kapat.>> "%LOG%"
+  echo [%TIME%] Bu hata genelde Secure Boot yuzunden. BIOS'ta Secure Boot KAPAT.>> "%LOG%"
   exit /b 1
 )
 
 echo [%TIME%] BCD guncellendi. SIMDI YENIDEN BASLAT ^(Test Mode^).>> "%LOG%"
-echo [%TIME%] Sonra Yardimci -^> 0. Ilk kurulum tekrar.>> "%LOG%"
 exit /b 2

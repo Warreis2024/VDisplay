@@ -18,17 +18,21 @@ Windows her sanal monitörü (VM) **gerçek ekran** gibi görür:
 
 ## İlk kurulum (bir kez)
 
-1. Projeyi indir / `git clone` (içinde **`dist\driver`** hazır sürücü paketi olmalı)  
-2. **`Start-VDisplay.cmd`** çift tıkla  
-3. **0. İlk kurulum** → yönetici onayını ver  
-4. **Test Mode** yazısı çıktıysa bilgisayarı **yeniden başlat**, Yardımcı’yı aç, **0. İlk kurulum**’u bir kez daha çalıştır (kurulum kodu **0** olmalı)  
-5. **Kullanım modu** seç → **6. Ayarları kaydet** → **1. Başlat**  
-6. **5. Ekran ayarları**’nda yeni monitörler → yan yana yerleştir  
+**Önkoşul:** BIOS/UEFI’de **Secure Boot = Disabled** (Güvenli Önyükleme kapalı).  
+Açıksa Windows test imzalı sürücüyü reddeder: *“Güvenli önyükleme ilkesi tarafından korunuyor”*.
+
+1. Projeyi indir / `git clone` (`dist\driver` + `dist\native` olmalı)  
+2. **`Start-VDisplay.cmd`** → tercihen **Yönetici olarak çalıştır**  
+3. **0. İlk kurulum** → UAC’ye Evet  
+4. İstenirse **yeniden başlat** → masaüstünde **Test Mode** → tekrar **0. İlk kurulum**  
+5. Mod seç → **6. Ayarları kaydet** → **1. Başlat**  
+6. **5. Ekran ayarları** → VM’leri yan yana koy  
 7. **2. Tray aç**
 
-> Son kullanıcıda **Visual Studio / WDK gerekmez**. Sürücü derleme yalnızca geliştiriciler içindir (`publish-driver-package.ps1`).
+> Son kullanıcıda **Visual Studio / WDK gerekmez**.
 
-`install-driver` kod=1 ise genelde: reboot yapılmamış veya yönetici onayı verilmemiş.
+`enable-test-signing` / `bcdedit` hata → önce **Secure Boot kapat**.  
+`install-driver` kod=1 → çoğu zaman reboot yapılmamış.
 
 ---
 
