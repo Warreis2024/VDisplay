@@ -41,6 +41,10 @@ ARM64/
 !dist/driver/*.inf
 !dist/driver/*.cer
 !dist/driver/*.md
+!dist/native/
+!dist/native/**
+!dist/native/*.dll
+!dist/native/*.md
 
 # Visual Studio / IDEs
 .vs/

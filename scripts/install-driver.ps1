@@ -7,14 +7,52 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $packageDir = Join-Path $root "driver\VDisplayDriver\$Platform\$Configuration\VDisplayDriver"
 $distDir = Join-Path $root "dist\driver"
+$logDir = Join-Path $env:ProgramData "VDisplay"
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$logFile = Join-Path $logDir "install-driver.log"
+"" | Set-Content -Path $logFile -Encoding UTF8
+
+function Write-Log([string]$msg) {
+    $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
+    Add-Content -Path $logFile -Value $line -Encoding UTF8
+    Write-Host $msg
+}
 
 function Test-Admin {
     return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 function Test-TestSigningEnabled {
-    $output = bcdedit /enum "{current}" 2>$null
-    return ($output -match "testsigning\s+Yes")
+    # Sadece calisan cekirdek — BCD reboot oncesi Yes gosterebilir
+    try {
+        Add-Type -Namespace VDisplayInstall -Name CiQuery -ErrorAction Stop -MemberDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class CiQuery {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct SYSTEM_CODEINTEGRITY_INFORMATION {
+    public uint Length;
+    public uint CodeIntegrityOptions;
+  }
+  [DllImport("ntdll.dll")]
+  public static extern int NtQuerySystemInformation(int SystemInformationClass, ref SYSTEM_CODEINTEGRITY_INFORMATION SystemInformation, int SystemInformationLength, out int ReturnLength);
+  public static bool IsTestSignActive() {
+    var info = new SYSTEM_CODEINTEGRITY_INFORMATION();
+    info.Length = (uint)Marshal.SizeOf(info);
+    int ret;
+    int st = NtQuerySystemInformation(0x67, ref info, (int)info.Length, out ret);
+    if (st != 0) return false;
+    return (info.CodeIntegrityOptions & 0x2) != 0;
+  }
+}
+"@ | Out-Null
+    } catch { }
+
+    try {
+        return [VDisplayInstall.CiQuery]::IsTestSignActive()
+    } catch {
+        return $false
+    }
 }
 
 function Install-PackageCertificate {
@@ -22,11 +60,11 @@ function Install-PackageCertificate {
 
     $cer = Join-Path $Dir "VDisplayTestCert.cer"
     if (-not (Test-Path $cer)) {
-        Write-Host "UYARI: Pakette VDisplayTestCert.cer yok." -ForegroundColor Yellow
+        Write-Log "UYARI: Pakette VDisplayTestCert.cer yok."
         return $false
     }
 
-    Write-Host "Test sertifikasi kuruluyor: $cer" -ForegroundColor Cyan
+    Write-Log "Test sertifikasi kuruluyor: $cer"
     certutil -addstore Root $cer | Out-Null
     certutil -addstore TrustedPublisher $cer | Out-Null
     return $true
@@ -48,48 +86,48 @@ function Find-DriverPackage {
     return $null
 }
 
-Write-Host "VDisplay surucu kurulumu..." -ForegroundColor Cyan
+Write-Log "VDisplay surucu kurulumu..."
 
 if (-not (Test-Admin)) {
-    throw "Bu script yonetici olarak calistirilmali."
-}
-
-if (-not (Test-TestSigningEnabled)) {
-    Write-Host "HATA: Test imzalama kapali. Once:" -ForegroundColor Red
-    Write-Host "  .\scripts\enable-test-signing.ps1"
-    Write-Host "  Yeniden baslat"
+    Write-Log "HATA: Yonetici olarak calistirilmali."
     exit 1
 }
 
-# Son kullanici: dist\driver (hazir paket). Gelistirici: build cikti klasoru.
+if (-not (Test-TestSigningEnabled)) {
+    Write-Log "HATA: Test imzalama henuz AKTIF DEGIL (reboot gerekli)."
+    Write-Log "  1) .\scripts\enable-test-signing.ps1"
+    Write-Log "  2) Bilgisayari YENIDEN BASLAT"
+    Write-Log "  3) Masaustunde 'Test Mode' yazisi gorunmeli"
+    Write-Log "  4) Yardimci -> 0. Ilk kurulum tekrar"
+    exit 1
+}
+
 $package = Find-DriverPackage -Dir $distDir
 if (-not $package) {
     $package = Find-DriverPackage -Dir $packageDir
 }
 
 if (-not $package) {
-    Write-Host "HATA: Surucu paketi bulunamadi." -ForegroundColor Red
-    Write-Host "  Beklenen: $distDir"
-    Write-Host "  (veya gelistirici build): $packageDir"
-    Write-Host "Gelistirici: .\scripts\publish-driver-package.ps1"
+    Write-Log "HATA: Surucu paketi bulunamadi."
+    Write-Log "  Beklenen: $distDir"
     exit 1
 }
 
 Install-PackageCertificate -Dir $package.Dir | Out-Null
 
-Write-Host "Paket: $($package.Dir)" -ForegroundColor Green
-Write-Host "pnputil ile kuruluyor..."
+Write-Log "Paket: $($package.Dir)"
+Write-Log "pnputil ile kuruluyor..."
 
 $pnputilOutput = pnputil /add-driver $package.Inf /install 2>&1
-$pnputilOutput | ForEach-Object { Write-Host $_ }
+$pnputilOutput | ForEach-Object { Write-Log "$_" }
 
-if ($LASTEXITCODE -ne 0 -or ($pnputilOutput -match "Failed|basarisiz")) {
-    Write-Host ""
-    Write-Host "HATA: Surucu depoya eklenemedi." -ForegroundColor Red
-    Write-Host "Test sertifikasi ve testsigning durumunu kontrol edin."
+$joined = ($pnputilOutput | Out-String)
+if ($LASTEXITCODE -ne 0 -or ($joined -match "Failed|basarisiz|Error")) {
+    Write-Log "HATA: Surucu depoya eklenemedi (pnputil kod=$LASTEXITCODE)."
+    Write-Log "Log: $logFile"
     exit 1
 }
 
-Write-Host ""
-Write-Host "Surucu depoya eklendi." -ForegroundColor Green
-Write-Host "Sonraki adim: Yardimci -> 1. Baslat"
+Write-Log "Surucu depoya eklendi."
+Write-Log "Sonraki adim: Yardimci -> 1. Baslat"
+exit 0

@@ -36,3 +36,8 @@ foreach ($cfg in $configs) {
     Copy-Item $dll $outDir -Force
     Write-Host "VDisplayNative.dll -> $outDir" -ForegroundColor Green
 }
+
+$distNative = Join-Path $root "dist\native"
+New-Item -ItemType Directory -Force -Path $distNative | Out-Null
+Copy-Item $dll $distNative -Force
+Write-Host "VDisplayNative.dll -> $distNative" -ForegroundColor Green

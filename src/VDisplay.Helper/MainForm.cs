@@ -334,40 +334,59 @@ internal sealed class MainForm : Form
         }
 
         var signCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "enable-test-signing.ps1"));
+        AppendProgramDataLog("enable-test-signing.log");
+
+        // 2 = yeni açıldı → reboot şart; kurulum yapma
+        if (signCode == 2)
+        {
+            LogT("log_reboot_required_now");
+            LogT("log_reboot_again");
+            return;
+        }
+
         if (signCode != 0)
         {
             LogT("log_testsign_fail");
             return;
         }
 
-        LogT("log_reboot");
-        LogT("log_reboot_again");
+        if (!IsTestSigningActive())
+        {
+            LogT("log_reboot_required_now");
+            LogT("log_reboot_again");
+            return;
+        }
+
+        LogT("log_testsign_ok");
 
         var packageDir = Path.Combine(root, "dist", "driver");
         var inf = Path.Combine(packageDir, "VDisplayDriver.inf");
         var dll = Path.Combine(packageDir, "VDisplayDriver.dll");
-        if (!File.Exists(inf) || !File.Exists(dll))
+        var cat = Directory.Exists(packageDir)
+            ? Directory.GetFiles(packageDir, "*.cat").FirstOrDefault()
+            : null;
+        if (!File.Exists(inf) || !File.Exists(dll) || cat is null)
         {
             LogT("log_no_package");
             LogT("log_expected", packageDir);
             LogT("log_end_user_dist");
-            LogT("log_dev_publish");
             return;
         }
 
         LogT("log_package", packageDir);
 
         var installCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "install-driver.ps1"));
+        AppendProgramDataLog("install-driver.log");
         if (installCode != 0)
         {
             LogT("log_install_fail", installCode);
-            LogT("log_install_hints");
             LogT("log_hint_reboot");
             LogT("log_hint_admin");
             LogT("log_hint_manual");
             return;
         }
 
+        EnsureNativeDll(root);
         LogT("log_install_ok");
     }
 
@@ -380,6 +399,12 @@ internal sealed class MainForm : Form
         if (root is null)
         {
             LogT("log_no_repo");
+            return;
+        }
+
+        if (!EnsureNativeDll(root))
+        {
+            LogT("log_native_missing");
             return;
         }
 
@@ -490,6 +515,8 @@ internal sealed class MainForm : Form
 
     private void EnsureService(string root)
     {
+        EnsureNativeDll(root);
+
         if (Process.GetProcessesByName("VDisplay.Service").Length > 0)
         {
             LogT("log_service_running");
@@ -505,6 +532,140 @@ internal sealed class MainForm : Form
             CreateNoWindow = true
         });
         LogT("log_service_started");
+    }
+
+    private bool EnsureNativeDll(string root)
+    {
+        var src = Path.Combine(root, "dist", "native", "VDisplayNative.dll");
+        if (!File.Exists(src))
+        {
+            return false;
+        }
+
+        var targets = new[]
+        {
+            Path.Combine(root, "src", "VDisplay.Service", "bin", "Release", "net8.0-windows"),
+            Path.Combine(root, "src", "VDisplay.Service", "bin", "Debug", "net8.0-windows")
+        };
+
+        foreach (var dir in targets)
+        {
+            Directory.CreateDirectory(dir);
+            File.Copy(src, Path.Combine(dir, "VDisplayNative.dll"), overwrite: true);
+        }
+
+        return true;
+    }
+
+    private static bool IsTestSigningActive()
+    {
+        // Çalışan çekirdek (bcdedit reboot öncesi de Yes gösterebilir)
+        try
+        {
+            if (TryGetCodeIntegrityOptions(out var options)
+                && (options & CodeIntegrityOptionTestSign) != 0)
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // fall through
+        }
+
+        // Yedek: bcdedit (yanıltıcı olabilir)
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "bcdedit",
+                Arguments = "/enum {current}",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            using var p = Process.Start(psi);
+            if (p is null)
+            {
+                return false;
+            }
+
+            var output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(5000);
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                output,
+                @"testsigning\s+Yes",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private const uint CodeIntegrityOptionTestSign = 0x00000002;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct SystemCodeIntegrityInformation
+    {
+        public uint Length;
+        public uint CodeIntegrityOptions;
+    }
+
+    [System.Runtime.InteropServices.DllImport("ntdll.dll")]
+    private static extern int NtQuerySystemInformation(
+        int systemInformationClass,
+        ref SystemCodeIntegrityInformation systemInformation,
+        int systemInformationLength,
+        out int returnLength);
+
+    private static bool TryGetCodeIntegrityOptions(out uint options)
+    {
+        options = 0;
+        var info = new SystemCodeIntegrityInformation
+        {
+            Length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<SystemCodeIntegrityInformation>()
+        };
+        var status = NtQuerySystemInformation(
+            0x67, // SystemCodeIntegrityInformation
+            ref info,
+            (int)info.Length,
+            out _);
+        if (status != 0)
+        {
+            return false;
+        }
+
+        options = info.CodeIntegrityOptions;
+        return true;
+    }
+
+    private void AppendProgramDataLog(string fileName)
+    {
+        try
+        {
+            var path = Path.Combine(UserConfigStore.ProgramDataDir, fileName);
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            var text = File.ReadAllText(path).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            foreach (var line in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).TakeLast(12))
+            {
+                Log("  " + line);
+            }
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private async Task<bool> WaitForServiceAsync(string root, TimeSpan timeout)
