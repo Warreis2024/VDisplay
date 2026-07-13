@@ -97,6 +97,8 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 
 Details: [docs/END_USER.md](docs/END_USER.md)
 
+If Helper install succeeds but monitors never appear: **Device Manager → Update driver** and browse to `dist\driver` (see [manual driver update](docs/END_USER.md#manual-driver-update-device-manager)).
+
 ---
 
 ## Why Secure Boot / BIOS? (important)

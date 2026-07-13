@@ -97,6 +97,8 @@ Preview uygulaması ile tüm sanal monitörleri tek ekrandan yönetmek, sistemi 
 
 Detay: [docs/END_USER.tr.md](docs/END_USER.tr.md)
 
+Kurulum olur ama monitör çıkmazsa: **Aygıt Yöneticisi → Sürücüyü güncelle** → `dist\driver` klasörünü göster ([elle sürücü](docs/END_USER.tr.md#elle-sürücü-güncelleme-aygıt-yöneticisi)).
+
 ---
 
 ## Neden Secure Boot / BIOS? (önemli)

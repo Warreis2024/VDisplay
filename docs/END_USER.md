@@ -36,6 +36,29 @@ If Secure Boot is on, Windows blocks test-signed drivers (*protected by Secure B
 
 ---
 
+## Manual driver update (Device Manager)
+
+If automatic install is incomplete or Windows leaves an unknown device:
+
+1. Confirm desktop shows **Test Mode**; Secure Boot is off.  
+2. **Win+X** → **Device Manager**  
+3. Find the device (often under **Other devices** with a yellow bang, or **Display adapters** as VDisplay / Unknown)  
+4. Right-click → **Update driver** → **Browse my computer for drivers**  
+5. Point to one of these folders:
+
+| Path | When |
+|------|------|
+| `...\VDisplay-main\dist\driver` | **Preferred** — prebuilt package (`.inf` + `.dll` + `.cat`) |
+| `...\VDisplay-main\driver\VDisplayDriver\x64\Release\VDisplayDriver` | After a local developer build |
+
+6. Keep **Include subfolders** checked → Next  
+7. If Windows warns about the test signature → **Install anyway**  
+8. Then Helper **1. Start** → check **Display settings** for new monitors
+
+> Do not point at the bare `driver\` source root. Use the **package folder** (`dist\driver` or `...\Release\VDisplayDriver`).
+
+---
+
 ## Every day
 
 1. `Start-VDisplay.cmd`  

@@ -36,6 +36,29 @@ Açıksa Windows test imzalı sürücüyü reddeder: *“Güvenli önyükleme il
 
 ---
 
+## Elle sürücü güncelleme (Aygıt Yöneticisi)
+
+Otomatik kurulum yetmezse veya Windows “bilinmeyen aygıt” bırakırsa:
+
+1. **Test Mode** masaüstünde görünsün; Secure Boot kapalı olsun.  
+2. **Win+X** → **Aygıt Yöneticisi**  
+3. Sorunlu / yeni aygıtı bul (genelde **Diğer aygıtlar**, sarı ünlem veya **Ekran bağdaştırıcıları** altında VDisplay / Unknown)  
+4. Sağ tık → **Sürücüyü güncelle** → **Bilgisayarıma göz atarak sürücü yazılımı ara**  
+5. Klasör seç (birini kullan):
+
+| Yol | Ne zaman |
+|-----|----------|
+| `...\VDisplay-main\dist\driver` | **Tercih edilen** — hazır paket (`.inf` + `.dll` + `.cat`) |
+| `...\VDisplay-main\driver\VDisplayDriver\x64\Release\VDisplayDriver` | Geliştirici derlemesi sonrası |
+
+6. **Alt klasörleri dahil et** işaretli olsun → İleri  
+7. Test imza uyarısı çıkarsa **Yine de yükle** / **Install anyway**  
+8. Bitince **1. Başlat** → **Ekran ayarları**’nda yeni monitörler kontrol et
+
+> Yanlış klasör: sadece `driver\` kökü veya kaynak `.inf` yetmeyebilir. Mutlaka **paket klasörünü** (`dist\driver` veya `...\Release\VDisplayDriver`) göster.
+
+---
+
 ## Her gün
 
 1. `Start-VDisplay.cmd`  
