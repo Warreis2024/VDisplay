@@ -4,8 +4,9 @@ namespace VDisplay.Core.Interop;
 
 public static class SharedMemoryConstants
 {
-    public const string LayoutMapName = "Global\\VDisplay.Layout";
-    public const string FramesMapName = "Global\\VDisplay.Frames";
+    // Local (session) maps — Global\\ needs SeCreateGlobalPrivilege and can hang without elevation.
+    public const string LayoutMapName = "Local\\VDisplay.Layout";
+    public const string FramesMapName = "Local\\VDisplay.Frames";
     public const int MaxVirtualMonitors = 10;
     public const int MaxFrameWidth = 1920;
     public const int MaxFrameHeight = 1080;

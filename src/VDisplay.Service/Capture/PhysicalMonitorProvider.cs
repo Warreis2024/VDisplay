@@ -67,8 +67,14 @@ public sealed class PhysicalMonitorProvider
             .Select(m => NormalizeDeviceName(m.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // Only real VDisplay / IDD adapters — not other GPUs' secondary outputs.
         var virtualMonitors = all
-            .Where(m => !physicalNames.Contains(NormalizeDeviceName(m.Name)))
+            .Where(m =>
+            {
+                var name = NormalizeDeviceName(m.Name);
+                return !physicalNames.Contains(name)
+                    && adapterVirtualNames.Contains(name);
+            })
             .OrderBy(m => m.X)
             .ThenBy(m => m.Y)
             .ToList();

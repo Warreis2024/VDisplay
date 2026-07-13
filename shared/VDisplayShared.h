@@ -8,8 +8,8 @@
 #define VDISPLAY_FRAME_PITCH (VDISPLAY_MAX_FRAME_W * 4)
 #define VDISPLAY_FRAME_SIZE (VDISPLAY_FRAME_PITCH * VDISPLAY_MAX_FRAME_H)
 
-#define VDISPLAY_LAYOUT_MAP_NAME L"Global\\VDisplay.Layout"
-#define VDISPLAY_FRAMES_MAP_NAME L"Global\\VDisplay.Frames"
+#define VDISPLAY_LAYOUT_MAP_NAME L"Local\\VDisplay.Layout"
+#define VDISPLAY_FRAMES_MAP_NAME L"Local\\VDisplay.Frames"
 #define VDISPLAY_MODES_CFG_PATH L"C:\\ProgramData\\VDisplay\\modes.cfg"
 #define VDISPLAY_MAX_USER_MODES 16
 

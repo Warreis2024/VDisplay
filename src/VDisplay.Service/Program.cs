@@ -16,8 +16,9 @@ builder.Services.AddSingleton<DriverInstaller>();
 builder.Services.AddSingleton<MonitorManager>();
 builder.Services.AddSingleton<CaptureHostedService>();
 builder.Services.AddSingleton<PhysicalCompositorService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<CaptureHostedService>());
+// IPC first so clients can connect even if capture/MMF setup is slow.
 builder.Services.AddHostedService<IpcHostedService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<CaptureHostedService>());
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

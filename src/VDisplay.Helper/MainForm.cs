@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
+using VDisplay.Core;
 using VDisplay.Core.Config;
 
 namespace VDisplay.Helper;
@@ -524,23 +525,79 @@ internal sealed class MainForm : Form
 
     private void EnsureService(string root)
     {
-        EnsureNativeDll(root);
-
-        if (Process.GetProcessesByName("VDisplay.Service").Length > 0)
+        var existing = Process.GetProcessesByName("VDisplay.Service");
+        if (existing.Length > 0)
         {
-            LogT("log_service_running");
-            return;
+            if (IsServicePipeReachable(timeoutMs: 800))
+            {
+                LogT("log_service_running");
+                return;
+            }
+
+            // Process alive but IPC dead (often hung on Global\\ MMF) — restart.
+            foreach (var p in existing)
+            {
+                try
+                {
+                    p.Kill(entireProcessTree: true);
+                    p.WaitForExit(3000);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
         }
 
-        _serviceProcess = Process.Start(new ProcessStartInfo
+        EnsureNativeDll(root);
+
+        var serviceExe = Path.Combine(
+            root,
+            "src", "VDisplay.Service", "bin", "Release", "net8.0-windows", "VDisplay.Service.exe");
+
+        // SwDeviceCreate needs elevation (0x80070005 otherwise). UAC once per start.
+        if (File.Exists(serviceExe))
         {
-            FileName = "dotnet",
-            Arguments = "run --project \"src\\VDisplay.Service\\VDisplay.Service.csproj\" -c Release",
-            WorkingDirectory = root,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        });
+            _serviceProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = serviceExe,
+                WorkingDirectory = Path.GetDirectoryName(serviceExe)!,
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+        }
+        else
+        {
+            _serviceProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "run --project \"src\\VDisplay.Service\\VDisplay.Service.csproj\" -c Release --no-build",
+                WorkingDirectory = root,
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+        }
+
         LogT("log_service_started");
+    }
+
+    private static bool IsServicePipeReachable(int timeoutMs)
+    {
+        try
+        {
+            using var pipe = new System.IO.Pipes.NamedPipeClientStream(
+                ".",
+                IpcConstants.PipeName,
+                System.IO.Pipes.PipeDirection.InOut);
+            pipe.Connect(timeoutMs);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool EnsureNativeDll(string root)
@@ -557,10 +614,29 @@ internal sealed class MainForm : Form
             Path.Combine(root, "src", "VDisplay.Service", "bin", "Debug", "net8.0-windows")
         };
 
+        var srcInfo = new FileInfo(src);
         foreach (var dir in targets)
         {
             Directory.CreateDirectory(dir);
-            File.Copy(src, Path.Combine(dir, "VDisplayNative.dll"), overwrite: true);
+            var dest = Path.Combine(dir, "VDisplayNative.dll");
+            if (File.Exists(dest))
+            {
+                var destInfo = new FileInfo(dest);
+                if (destInfo.Length == srcInfo.Length
+                    && destInfo.LastWriteTimeUtc == srcInfo.LastWriteTimeUtc)
+                {
+                    continue;
+                }
+            }
+
+            try
+            {
+                File.Copy(src, dest, overwrite: true);
+            }
+            catch (IOException) when (File.Exists(dest))
+            {
+                // Servis DLL'i yüklemiş; üzerine yazılamaz — mevcut dosya yeterli.
+            }
         }
 
         return true;
@@ -568,44 +644,11 @@ internal sealed class MainForm : Form
 
     private static bool IsTestSigningActive()
     {
-        // Çalışan çekirdek (bcdedit reboot öncesi de Yes gösterebilir)
+        // Sadece çalışan çekirdek — BCD reboot öncesi de Yes gösterebilir (yanıltıcı).
         try
         {
-            if (TryGetCodeIntegrityOptions(out var options)
-                && (options & CodeIntegrityOptionTestSign) != 0)
-            {
-                return true;
-            }
-        }
-        catch
-        {
-            // fall through
-        }
-
-        // Yedek: bcdedit (yanıltıcı olabilir)
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "bcdedit",
-                Arguments = "/enum {current}",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-            using var p = Process.Start(psi);
-            if (p is null)
-            {
-                return false;
-            }
-
-            var output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit(5000);
-            return System.Text.RegularExpressions.Regex.IsMatch(
-                output,
-                @"testsigning\s+Yes",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return TryGetCodeIntegrityOptions(out var options)
+                && (options & CodeIntegrityOptionTestSign) != 0;
         }
         catch
         {

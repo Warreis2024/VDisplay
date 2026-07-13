@@ -51,7 +51,8 @@ public sealed class CaptureHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _sharedFrameBridge.EnsureCreated();
+        // Yield first so other hosted services (IPC) can start even if MMF setup is slow.
+        await Task.Yield();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -63,6 +64,7 @@ public sealed class CaptureHostedService : BackgroundService
 
             try
             {
+                _sharedFrameBridge.EnsureCreated();
                 _monitorManager.RefreshVirtualMonitorMapping();
                 var layout = _monitorManager.GetActiveLayout();
                 if (layout is null || layout.Regions.Count == 0)

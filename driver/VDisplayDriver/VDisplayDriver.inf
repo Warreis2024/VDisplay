@@ -10,7 +10,7 @@ Class=Display
 ClassVer=2.0
 Provider=%ManufacturerName%
 CatalogFile=vdisplaydriver.cat
-DriverVer=07/13/2026,2.25.2.0
+DriverVer=07/13/2026,2.25.3.0
 
 [Manufacturer]
 %ManufacturerName%=Standard,NTamd64,NTamd64.10.0...19041,NTamd64.10.0...22000
@@ -53,9 +53,20 @@ AddReg=MyDevice_HardwareDeviceSettings
 HKR,,"UpperFilters",%REG_MULTI_SZ%,"IndirectKmd"
 HKR,"WUDF","DeviceGroupId",%REG_SZ%,"VDisplayDriverGroup"
 
+; Explicit function driver — Include/Needs alone can fail on SWD with
+; STATUS_PNP_FUNCTION_DRIVER_REQUIRED (0xC0000494).
 [MyDevice_Install.NT.Services]
+AddService=WUDFRd,0x000001fa,WUDFRD_ServiceInstall
 Include=WUDFRD.inf
 Needs=WUDFRD.NT.Services
+
+[WUDFRD_ServiceInstall]
+DisplayName="Windows Driver Foundation - User-mode Driver Framework Reflector"
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\WUDFRd.sys
+LoadOrderGroup=Base
 
 [MyDevice_Install.NT.Wdf]
 UmdfService=VDisplayDriver,VDisplayDriver_Install

@@ -1,4 +1,6 @@
 using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 using VDisplay.Core;
 using VDisplay.Core.Models;
@@ -41,12 +43,22 @@ public sealed class IpcHostedService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await using var pipe = new NamedPipeServerStream(
+            // Allow non-elevated Helper/CLI to talk to an elevated service.
+            var security = new PipeSecurity();
+            security.AddAccessRule(new PipeAccessRule(
+                new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+                PipeAccessRights.FullControl,
+                AccessControlType.Allow));
+
+            await using var pipe = NamedPipeServerStreamAcl.Create(
                 IpcConstants.PipeName,
                 PipeDirection.InOut,
                 NamedPipeServerStream.MaxAllowedServerInstances,
                 PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
+                PipeOptions.Asynchronous,
+                inBufferSize: 0,
+                outBufferSize: 0,
+                pipeSecurity: security);
 
             try
             {

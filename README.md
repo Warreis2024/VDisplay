@@ -89,15 +89,15 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 
 ## Quick start (end users)
 
-1. **BIOS/UEFI: set Secure Boot = Disabled** (one-time; required for the current test-signed build — see below)
-2. Double-click **`Start-VDisplay.cmd`** (preferably Run as administrator)
-3. **0. First-time setup** → approve UAC → if asked, reboot until **Test Mode** shows on the desktop → run setup again
-4. Pick a mode → **1. Start**
-5. **Display settings** → place VMs beside your physical monitors
+1. **BIOS/UEFI: Secure Boot = Disabled**  
+2. **`Start-VDisplay.cmd` → Run as administrator** (required for first setup)  
+3. **0. First setup** → UAC **Yes** → reboot → desktop **Test Mode** → run **0** again  
+4. If Windows says the driver is untrusted → **Install anyway**  
+5. Pick a mode → **1. Start**  
+6. Yellow bang? Device Manager → **Have Disk** → `dist\driver\VDisplayDriver.inf`  
+7. **Display settings** → place VMs side by side  
 
-Details: [docs/END_USER.md](docs/END_USER.md)
-
-If Helper install succeeds but monitors never appear: **Device Manager → Update driver** and browse to `dist\driver` (see [manual driver update](docs/END_USER.md#manual-driver-update-device-manager)).
+Full checklist: [docs/END_USER.md](docs/END_USER.md)
 
 ---
 

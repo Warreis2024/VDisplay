@@ -24,9 +24,10 @@ function Test-Admin {
 }
 
 function Test-TestSigningEnabled {
-    # Sadece calisan cekirdek â€” BCD reboot oncesi Yes gosterebilir
-    try {
-        Add-Type -Namespace VDisplayInstall -Name CiQuery -ErrorAction Stop -MemberDefinition @"
+    # Running kernel only - BCD can show Yes before reboot
+    if (-not ("VDisplayInstall.CiQuery" -as [type])) {
+        try {
+            Add-Type -Namespace VDisplayInstall -Name CiQuery -MemberDefinition @"
 using System;
 using System.Runtime.InteropServices;
 public static class CiQuery {
@@ -47,7 +48,10 @@ public static class CiQuery {
   }
 }
 "@ | Out-Null
-    } catch { }
+        } catch {
+            return $false
+        }
+    }
 
     try {
         return [VDisplayInstall.CiQuery]::IsTestSignActive()
@@ -96,9 +100,9 @@ if (-not (Test-Admin)) {
 
 if (-not (Test-TestSigningEnabled)) {
     Write-Log "HATA: Test imzalama henuz AKTIF DEGIL (reboot gerekli)."
-    Write-Log "  1) .\scripts\enable-test-signing.ps1"
+    Write-Log "  1) .\scripts\enable-test-signing.cmd"
     Write-Log "  2) Bilgisayari YENIDEN BASLAT"
-    Write-Log "  3) Masaustunde 'Test Mode' yazisi gorunmeli"
+    Write-Log "  3) Masaustunde 'Test Mode' / 'Sinama Modu' yazisi gorunmeli"
     Write-Log "  4) Yardimci -> 0. Ilk kurulum tekrar"
     exit 1
 }
@@ -131,4 +135,5 @@ if ($LASTEXITCODE -ne 0 -or ($joined -match "Failed|basarisiz|Error")) {
 
 Write-Log "Surucu depoya eklendi."
 Write-Log "Sonraki adim: Yardimci -> 1. Baslat"
+Write-Log "Sari unlem kalirsa: Aygit Yoneticisi -> Diskim var -> dist\driver\VDisplayDriver.inf"
 exit 0

@@ -6,6 +6,21 @@ English: [END_USER.md](END_USER.md) · Genel: [README.tr.md](../README.tr.md)
 
 ---
 
+## Mutlaka bil (kurulum checklist)
+
+Bu dört madde olmadan kurulum çoğu PC’de **başarısız** olur:
+
+| # | Zorunlu adım | Neden |
+|---|--------------|--------|
+| 1 | **`Start-VDisplay.cmd` → sağ tık → Yönetici olarak çalıştır** | Sürücü cihazı / IPC / `SwDeviceCreate` için yükseltilmiş süreç gerekir (`0x80070005` aksi halde). |
+| 2 | **BIOS/UEFI → Secure Boot = Disabled** | Test imzalı IDD sürücüsü Secure Boot açıkken engellenir. |
+| 3 | Windows **“bu sürücüye güvenilmiyor / imza doğrulanamadı”** uyarısında **Yine de yükle / Install anyway** | Test imzası bilerek güvenilmez görünür; onay şart. |
+| 4 | Otomatik kurulum yetmezse **Aygıt Yöneticisi’nden manuel sürücü** (`dist\driver\VDisplayDriver.inf`, Diskim var) | Paket depoya girer ama cihaza bağlanmazsa sarı ünlem kalır. |
+
+Masaüstünde **Sınama Modu / Test Mode** yazısı = test signing **aktif** (bu iyi; hata değil).
+
+---
+
 ## Ne işe yarar?
 
 Windows her sanal monitörü (VM) **gerçek ekran** gibi görür:
@@ -18,61 +33,52 @@ Windows her sanal monitörü (VM) **gerçek ekran** gibi görür:
 
 ## İlk kurulum (bir kez)
 
-**Önkoşul:** BIOS/UEFI’de **Secure Boot = Disabled** (Güvenli Önyükleme kapalı).  
-Açıksa Windows test imzalı sürücüyü reddeder: *“Güvenli önyükleme ilkesi tarafından korunuyor”*.
-
-1. Projeyi indir / `git clone` (`dist\driver` + `dist\native` olmalı)  
-2. **`Start-VDisplay.cmd`** → tercihen **Yönetici olarak çalıştır**  
-3. **0. İlk kurulum** → UAC’ye Evet  
-4. İstenirse **yeniden başlat** → masaüstünde **Test Mode** → tekrar **0. İlk kurulum**  
-5. Mod seç → **6. Ayarları kaydet** → **1. Başlat**  
-6. **5. Ekran ayarları** → VM’leri yan yana koy  
-7. **2. Tray aç**
+1. Projeyi indir / `git pull` (`dist\driver` + `dist\native` olmalı)  
+2. **`Start-VDisplay.cmd` → Yönetici olarak çalıştır** (ilk sefer şart)  
+3. **0. İlk kurulum** → tüm UAC pencerelerinde **Evet**  
+4. Secure Boot / test signing istenirse: BIOS’ta Secure Boot kapat → yeniden başlat → masaüstünde **Sınama Modu** → tekrar **0. İlk kurulum**  
+5. Sürücü uyarısında **Yine de yükle**  
+6. Mod seç → **6. Ayarları kaydet** → **1. Başlat** (servis UAC isteyebilir → Evet)  
+7. Aygıt Yöneticisi’nde sarı ünlem varsa aşağıdaki **manuel sürücü** adımı  
+8. **5. Ekran ayarları** → VM’leri yan yana koy  
+9. **2. Tray aç**
 
 > Son kullanıcıda **Visual Studio / WDK gerekmez**.
-
-`enable-test-signing` / `bcdedit` hata → önce **Secure Boot kapat**.  
-`install-driver` kod=1 → çoğu zaman reboot yapılmamış.
 
 ---
 
 ## Elle sürücü güncelleme (Aygıt Yöneticisi)
 
-Otomatik kurulum yetmezse veya **Diğer aygıtlar** altında sarı ünlemli **VDisplay Virtual Split Monitor Driver** görürsen:
+**Diğer aygıtlar** altında sarı ünlemli **VDisplay Virtual Split Monitor Driver** görürsen:
 
 ### A) Önerilen: Diskim var (Have Disk)
 
 1. Yardımcıda **4. Durdur**  
-2. Aygıt Yöneticisi → **Diğer aygıtlar** → **VDisplay Virtual Split Monitor Driver**  
+2. Aygıt Yöneticisi → **Diğer aygıtlar** → VDisplay…  
 3. Sağ tık → **Sürücüyü güncelle** → **Bilgisayarıma göz at…**  
-4. Alttaki link: **Bilgisayarımdaki kullanılabilir sürücülerin bir listesinden seçmeme izin ver**  
-5. **Diskim var…** → Gözat → şu dosyayı seç:  
-   `C:\VDisplay-main\dist\driver\VDisplayDriver.inf`  
-6. Listeden **VDisplay Virtual Monitor Device** → İleri  
-7. Test imza uyarısında **Yine de yükle**  
+4. **Bilgisayarımdaki kullanılabilir sürücülerin bir listesinden seçmeme izin ver**  
+5. **Diskim var…** →  
+   `...\VDisplay-main\dist\driver\VDisplayDriver.inf`  
+6. **VDisplay Virtual Monitor Device** → İleri  
+7. **Yine de yükle** (güvenilmeyen imza)  
 8. Ünlem kalkınca aygıt **Görüntü bağdaştırıcıları** altında olmalı  
-9. Yardımcı **1. Başlat** → Ekran ayarları
+9. **1. Başlat** → Ekran ayarları
 
-### B) Klasör ile ara (bazen INF hatası verir)
+### B) Klasör ile ara
 
-Klasör: `C:\VDisplay-main\dist\driver` (alt klasörler dahil).  
-*“Sürücü yükleme dosyası gerekli bir girdiyi içermiyor”* görürsen **A yöntemini** kullan (doğrudan `.inf` seç).
+Klasör: `...\dist\driver`.  
+*“Sürücü yükleme dosyası gerekli bir girdiyi içermiyor”* → **A yöntemini** kullan.
 
-| Yol | Ne zaman |
-|-----|----------|
-| `...\dist\driver\VDisplayDriver.inf` | **Tercih** — hazır paket |
-| `...\driver\VDisplayDriver\x64\Release\VDisplayDriver\` | Yerel derleme sonrası |
-
-> Sadece `driver\` kökünü gösterme. Paket klasörü / `.inf` şart.
+İsteğe bağlı onarım scriptleri (yönetici): `scripts\repair-vdisplay-device.cmd`, `scripts\bind-driver.ps1`.
 
 ---
 
 ## Her gün
 
-1. `Start-VDisplay.cmd`  
+1. `Start-VDisplay.cmd` (gerekirse yine yönetici)  
 2. **1. Başlat**  
-3. İstersen **Tray önizleme**  
-4. Bitince **Durdur**
+3. İstersen **Tray**  
+4. Bitince **4. Durdur**
 
 ---
 
@@ -84,8 +90,6 @@ Klasör: `C:\VDisplay-main\dist\driver` (alt klasörler dahil).
 | **dual** | 2 fiziksel → 4 VM (yarı yarıya kopya). |
 | **primary** | 1 fiziksel → 2 VM. |
 
-Yardımcıda mod seç → **Ayarları kaydet** → **Başlat**.
-
 ---
 
 ## Çözünürlük ve VM sayısı
@@ -94,63 +98,24 @@ Yardımcıda mod seç → **Ayarları kaydet** → **Başlat**.
 |------|--------|
 | VM sayısı | 1–10 |
 | Mod | desktop / dual / primary |
-| Yeni çözünürlük (ör. 720×720) | Genişlik × yükseklik @ Hz → **Listeye ekle** → **Ayarları kaydet** |
-| Sil | Seç → **Seçileni sil** → kaydet |
+| Yeni çözünürlük | Listeye ekle → **6. Ayarları kaydet** → Durdur → Başlat |
 
-Dosya:
-
-`C:\ProgramData\VDisplay\vdisplay.user.json`
-
-```json
-{
-  "version": 1,
-  "monitorCount": 4,
-  "splitMode": "desktop",
-  "preferredModeIndex": 0,
-  "modes": [
-    { "width": 1280, "height": 1080, "refreshRate": 60 },
-    { "width": 720, "height": 720, "refreshRate": 60 }
-  ]
-}
-```
-
-Yeni çözünürlükten sonra: **Durdur → Başlat**, sonra **Ayarlar → Sistem → Ekran**’dan seç.
-
-**JSON klasörü** Explorer’da bu yolu açar.
+Dosya: `C:\ProgramData\VDisplay\vdisplay.user.json`
 
 ---
 
-## Tray önizleme
+## Sorun giderme (kısa)
 
-1. **Tray önizleme**  
-2. VM küçük resmine tıkla  
-3. Pencerede tıkla → mouse o VM’ye gider  
-4. **F3** → primary’ye dön  
-5. **F2** kontrol · **Esc** kapat  
-
----
-
-## Toplantıda paylaşım
-
-1. Uygulamayı VM’ye taşı (`Win+Shift+Ok`)  
-2. Meet/Teams → Ekran paylaş → **o VM**’yi seç  
+| Belirti | Çözüm |
+|---------|--------|
+| `bcdedit` / Secure Boot koruması | BIOS’ta Secure Boot kapat |
+| `0x80070005` / servis bağlanamıyor | Yardımcı + servisi **yönetici** aç |
+| Sarı ünlem, monitör yok | Manuel INF (Diskim var) + **Yine de yükle** |
+| Tray “VM yok” | Önce 1. Başlat; ünlemsiz sürücü |
+| Sahte / fiziksel ekran VM gibi | Güncel sürüm yalnızca VDisplay cihazlarını listeler |
 
 ---
 
-## Sorun giderme
+## Lisans
 
-| Durum | Ne yap |
-|-------|--------|
-| Başlat olmuyor | **İlk kurulum** (yönetici) |
-| Sanal monitör yok | Başlat → Ekran ayarlarını yenile |
-| Yeni çözünürlük yok | Kaydet → Durdur → Başlat |
-| Hiçbir şey çalışmıyor | Durdur → İlk kurulum → Başlat |
-
----
-
-## Lisans (kısa)
-
-Bireysel kullanım ücretsiz · Ticari kullanım ücretli lisans · İsteğe bağlı [kahve](https://www.buymeacoffee.com/warreis)  
-Tam metin: [LICENSE](../LICENSE)
-
-Geliştiriciler: [DEVELOPER.tr.md](DEVELOPER.tr.md)
+Kişisel kullanım ücretsiz; ticari kullanım ücretli. [LICENSE](../LICENSE)

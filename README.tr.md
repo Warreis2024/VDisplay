@@ -89,15 +89,15 @@ Preview uygulaması ile tüm sanal monitörleri tek ekrandan yönetmek, sistemi 
 
 ## Hızlı başlangıç (son kullanıcı)
 
-1. **BIOS/UEFI: Secure Boot = Disabled** (bir kez; mevcut test imzalı sürüm için zorunlu — aşağıya bak)
-2. **`Start-VDisplay.cmd`** → tercihen **Yönetici olarak çalıştır**
-3. **0. İlk kurulum** → UAC’ye Evet → gerekirse yeniden başlat, masaüstünde **Test Mode** gör → kurulumu tekrarla
-4. Mod seç → **1. Başlat**
-5. **Ekran ayarları** → VM’leri fiziksel monitörlerin yanına koy
+1. **BIOS/UEFI: Secure Boot = Disabled**  
+2. **`Start-VDisplay.cmd` → sağ tık → Yönetici olarak çalıştır** (ilk kurulumda şart)  
+3. **0. İlk kurulum** → UAC **Evet** → reboot → masaüstünde **Sınama Modu** → **0** tekrar  
+4. Windows “sürücüye güvenilmiyor” derse → **Yine de yükle**  
+5. Mod seç → **1. Başlat**  
+6. Sarı ünlem varsa: Aygıt Yöneticisi → **Diskim var** → `dist\driver\VDisplayDriver.inf`  
+7. **Ekran ayarları** → VM’leri yan yana koy  
 
-Detay: [docs/END_USER.tr.md](docs/END_USER.tr.md)
-
-Kurulum olur ama monitör çıkmazsa: **Aygıt Yöneticisi → Sürücüyü güncelle** → `dist\driver` klasörünü göster ([elle sürücü](docs/END_USER.tr.md#elle-sürücü-güncelleme-aygıt-yöneticisi)).
+Detay + checklist: [docs/END_USER.tr.md](docs/END_USER.tr.md)
 
 ---
 

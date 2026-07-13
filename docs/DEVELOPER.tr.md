@@ -108,6 +108,23 @@ Mod değişince: Durdur → Başlat (veya cihazı yeniden başlat).
 
 Shared buffer üst sınırı: **1920×1080** (`shared/VDisplayShared.h`).
 
+Paylaşılan bellek: **`Local\VDisplay.*`** (eski `Global\` admin’siz takılabiliyordu).
+
+### Güvenilirlik düzeltmeleri
+
+| Konu | Ne yapıldı |
+|------|------------|
+| DLL kilidi | Servis açıkken native DLL üzerine yazma güvenli |
+| IPC / MMF | `Global\` → `Local\`; pipe ACL |
+| Ölü servis | IPC yoksa Helper servisi yeniden başlatır |
+| Test signing | Çekirdek CI (yalnız BCD değil) |
+| `0x80070005` | Servis yönetici başlatma |
+| Sahte VM | Yalnızca VDisplay cihazları |
+| INF | `WUDFRd` AddService (function driver) |
+| Bind | `scripts/bind-driver.ps1`, `repair-vdisplay-device.cmd` |
+
+Son kullanıcı: [END_USER.tr.md](END_USER.tr.md)
+
 ---
 
 ## CLI

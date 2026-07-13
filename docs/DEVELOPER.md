@@ -123,6 +123,23 @@ After changing modes: Stop → Start (or reinstall/restart driver device) so Win
 
 Max shared frame buffer today: **1920×1080** (`VDISPLAY_MAX_FRAME_*` in `shared/VDisplayShared.h`). Larger modes may appear in Display Settings but capture may clamp.
 
+Shared memory maps use **`Local\VDisplay.*`** (older `Global\` could hang without elevation).
+
+### Reliability fixes
+
+| Topic | Change |
+|-------|--------|
+| DLL lock | Safe native DLL copy while service runs |
+| IPC / MMF | `Global\` → `Local\`; pipe ACL |
+| Dead service | Helper restarts if process alive but IPC dead |
+| Test signing | Kernel CI check (not BCD alone) |
+| `0x80070005` | Elevated service start |
+| Fake VMs | Only VDisplay devices listed |
+| INF | Explicit `WUDFRd` AddService |
+| Bind | `scripts/bind-driver.ps1`, `repair-vdisplay-device.cmd` |
+
+End-user checklist: [END_USER.md](END_USER.md)
+
 ---
 
 ## CLI

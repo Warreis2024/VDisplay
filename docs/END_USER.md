@@ -1,8 +1,23 @@
 # VDisplay — End User Guide
 
-No PowerShell required for daily use. Use the **Helper** app.
+No PowerShell needed for daily use. Use the **Helper** app.
 
 Turkish: [END_USER.tr.md](END_USER.tr.md) · Overview: [README.md](../README.md)
+
+---
+
+## Must-know (setup checklist)
+
+Without these, setup fails on most PCs:
+
+| # | Required | Why |
+|---|----------|-----|
+| 1 | Run **`Start-VDisplay.cmd` as Administrator** (right-click) | Driver device / IPC / `SwDeviceCreate` need elevation (`0x80070005` otherwise). |
+| 2 | **BIOS/UEFI → Secure Boot = Disabled** | Test-signed IDD is blocked while Secure Boot is on. |
+| 3 | When Windows says the driver is **untrusted / cannot verify signature** → **Install anyway** | Test signature is expected; you must approve. |
+| 4 | If auto-install leaves a yellow bang → **Device Manager manual install** (`dist\driver\VDisplayDriver.inf`, Have Disk) | Package may be in the store but not bound to the device. |
+
+Desktop watermark **Test Mode** = test signing is **active** (good, not an error).
 
 ---
 
@@ -12,27 +27,23 @@ Windows treats each virtual monitor (VM) as a **real display**:
 
 - Move windows with drag or `Win+Shift+Arrow`
 - Share **one** VM in Meet / Teams / Zoom
-- Optional live preview tray (RDP-style click-through)
+- Optional live Tray preview
 
 ---
 
 ## First-time setup (once)
 
-**Prerequisite:** In BIOS/UEFI set **Secure Boot = Disabled**.  
-If Secure Boot is on, Windows blocks test-signed drivers (*protected by Secure Boot policy*).
-
-1. Download / clone (must include **`dist\driver`** and **`dist\native`**)  
-2. Run **`Start-VDisplay.cmd`** (preferably **as Administrator**)  
-3. **0. First-time setup** → approve UAC  
-4. If asked, **reboot** → confirm desktop **Test Mode** → run **0. First setup** again  
-5. Choose mode → **6. Save settings** → **1. Start**  
-6. **5. Display settings** → place VMs side by side  
-7. **2. Open Tray**
+1. Download / `git pull` (need `dist\driver` + `dist\native`)  
+2. **`Start-VDisplay.cmd` → Run as administrator**  
+3. **0. First setup** → approve every UAC prompt  
+4. If needed: disable Secure Boot → reboot → confirm **Test Mode** → run **0** again  
+5. Approve **Install anyway** on the signature warning  
+6. Choose mode → **6. Save** → **1. Start** (service may prompt UAC)  
+7. Yellow bang? Use **manual driver** below  
+8. **5. Display settings** → place VMs side by side  
+9. **2. Open Tray**
 
 > End users do **not** need Visual Studio / WDK.
-
-`bcdedit` / test-signing errors → disable **Secure Boot** first.  
-`install-driver` exit 1 → usually no reboot yet.
 
 ---
 
@@ -43,34 +54,26 @@ If **Other devices** shows **VDisplay Virtual Split Monitor Driver** with a yell
 ### A) Preferred: Have Disk
 
 1. Helper **4. Stop**  
-2. Device Manager → **Other devices** → **VDisplay Virtual Split Monitor Driver**  
-3. Update driver → Browse my computer  
-4. Click **Let me pick from a list of available drivers on my computer**  
-5. **Have Disk…** → Browse → select:  
-   `C:\VDisplay-main\dist\driver\VDisplayDriver.inf`  
-6. Choose **VDisplay Virtual Monitor Device** → Next  
-7. On test-signature warning → **Install anyway**  
-8. Device should move under **Display adapters**  
-9. Helper **1. Start** → Display settings
+2. Update driver → Browse → **Let me pick from a list**  
+3. **Have Disk…** → `...\dist\driver\VDisplayDriver.inf`  
+4. Select **VDisplay Virtual Monitor Device** → **Install anyway**  
+5. Device should appear under **Display adapters**  
+6. Helper **1. Start**
 
-### B) Search this folder (can hit INF errors)
+### B) Search folder
 
-Folder: `...\dist\driver` (include subfolders).  
-If you see *“driver installation file does not contain a required entry”*, use **method A** (pick the `.inf` via Have Disk).
+Use `...\dist\driver`. If you get *“does not contain a required entry”*, use **method A**.
 
-| Path | When |
-|------|------|
-| `...\dist\driver\VDisplayDriver.inf` | **Preferred** |
-| `...\driver\VDisplayDriver\x64\Release\VDisplayDriver\` | After local build |
+Optional repair (admin): `scripts\repair-vdisplay-device.cmd`, `scripts\bind-driver.ps1`.
 
 ---
 
 ## Every day
 
-1. `Start-VDisplay.cmd`  
+1. `Start-VDisplay.cmd` (admin if needed)  
 2. **1. Start**  
-3. Optional: **Tray preview**  
-4. When done: **Stop**
+3. Optional **Tray**  
+4. **4. Stop** when done  
 
 ---
 
@@ -78,83 +81,24 @@ If you see *“driver installation file does not contain a required entry”*, u
 
 | Mode | Meaning |
 |------|---------|
-| **desktop** | Extra blank monitors only. No capture/split. Best “more desktops” mode. |
-| **dual** | 2 physical screens → 4 VMs (mirrored halves). |
-| **primary** | 1 physical screen → 2 VMs. |
-
-Pick the mode in Helper → **Save settings** → **Start**.
-
----
-
-## Resolutions & VM count
-
-In Helper:
-
-| Setting | How |
-|---------|-----|
-| VM count | 1–10 |
-| Mode | desktop / dual / primary |
-| Add resolution (e.g. 720×720) | Width × Height @ Hz → **Add to list** → **Save settings** |
-| Remove | Select → **Remove selected** → save |
-
-Saved to:
-
-`C:\ProgramData\VDisplay\vdisplay.user.json`
-
-Example:
-
-```json
-{
-  "version": 1,
-  "monitorCount": 4,
-  "splitMode": "desktop",
-  "preferredModeIndex": 0,
-  "modes": [
-    { "width": 1280, "height": 1080, "refreshRate": 60 },
-    { "width": 720, "height": 720, "refreshRate": 60 }
-  ]
-}
-```
-
-After saving new resolutions: **Stop → Start**, then pick the mode in **Settings → System → Display**.
-
-**JSON folder** opens that directory in Explorer.
-
-> Driver must support `modes.cfg` (build + install driver once if you updated from an older build).
-
----
-
-## Tray preview (remote-style)
-
-1. **Tray preview**  
-2. Click a VM thumbnail  
-3. Click inside the window → mouse jumps to that VM  
-4. **F3** → return cursor to primary  
-5. **F2** toggle control · **Esc** close  
-
----
-
-## Meeting share
-
-1. Move the app to the target VM (`Win+Shift+Arrow`)  
-2. Meet/Teams → Share screen → choose **that VM**
+| **desktop** | Extra blank monitors only |
+| **dual** | 2 physical → 4 VMs |
+| **primary** | 1 physical → 2 VMs |
 
 ---
 
 ## Troubleshooting
 
-| Problem | Fix |
+| Symptom | Fix |
 |---------|-----|
-| Start fails | Run **First-time setup** (admin) |
-| No virtual monitors | Start → refresh Display settings |
-| New resolution missing | Save → Stop → Start |
-| Nothing works | Stop → First-time setup → Start |
+| Secure Boot / bcdedit blocked | Disable Secure Boot in BIOS |
+| `0x80070005` / service won’t connect | Run Helper (and service) **as admin** |
+| Yellow bang / no monitors | Have Disk + **Install anyway** |
+| Tray “no VM” | Start first; driver must be bound |
+| Physical GPU outputs listed as VMs | Use latest build (VDisplay devices only) |
 
 ---
 
-## License (short)
+## License
 
-Personal use free · Commercial use needs a paid license · Optional [Buy Me a Coffee](https://www.buymeacoffee.com/warreis)  
-Full text: [LICENSE](../LICENSE)
-
-Developers: [DEVELOPER.md](DEVELOPER.md)
+Personal use free; commercial use paid. See [LICENSE](../LICENSE).
