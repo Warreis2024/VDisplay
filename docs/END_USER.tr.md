@@ -38,24 +38,32 @@ Açıksa Windows test imzalı sürücüyü reddeder: *“Güvenli önyükleme il
 
 ## Elle sürücü güncelleme (Aygıt Yöneticisi)
 
-Otomatik kurulum yetmezse veya Windows “bilinmeyen aygıt” bırakırsa:
+Otomatik kurulum yetmezse veya **Diğer aygıtlar** altında sarı ünlemli **VDisplay Virtual Split Monitor Driver** görürsen:
 
-1. **Test Mode** masaüstünde görünsün; Secure Boot kapalı olsun.  
-2. **Win+X** → **Aygıt Yöneticisi**  
-3. Sorunlu / yeni aygıtı bul (genelde **Diğer aygıtlar**, sarı ünlem veya **Ekran bağdaştırıcıları** altında VDisplay / Unknown)  
-4. Sağ tık → **Sürücüyü güncelle** → **Bilgisayarıma göz atarak sürücü yazılımı ara**  
-5. Klasör seç (birini kullan):
+### A) Önerilen: Diskim var (Have Disk)
+
+1. Yardımcıda **4. Durdur**  
+2. Aygıt Yöneticisi → **Diğer aygıtlar** → **VDisplay Virtual Split Monitor Driver**  
+3. Sağ tık → **Sürücüyü güncelle** → **Bilgisayarıma göz at…**  
+4. Alttaki link: **Bilgisayarımdaki kullanılabilir sürücülerin bir listesinden seçmeme izin ver**  
+5. **Diskim var…** → Gözat → şu dosyayı seç:  
+   `C:\VDisplay-main\dist\driver\VDisplayDriver.inf`  
+6. Listeden **VDisplay Virtual Monitor Device** → İleri  
+7. Test imza uyarısında **Yine de yükle**  
+8. Ünlem kalkınca aygıt **Görüntü bağdaştırıcıları** altında olmalı  
+9. Yardımcı **1. Başlat** → Ekran ayarları
+
+### B) Klasör ile ara (bazen INF hatası verir)
+
+Klasör: `C:\VDisplay-main\dist\driver` (alt klasörler dahil).  
+*“Sürücü yükleme dosyası gerekli bir girdiyi içermiyor”* görürsen **A yöntemini** kullan (doğrudan `.inf` seç).
 
 | Yol | Ne zaman |
 |-----|----------|
-| `...\VDisplay-main\dist\driver` | **Tercih edilen** — hazır paket (`.inf` + `.dll` + `.cat`) |
-| `...\VDisplay-main\driver\VDisplayDriver\x64\Release\VDisplayDriver` | Geliştirici derlemesi sonrası |
+| `...\dist\driver\VDisplayDriver.inf` | **Tercih** — hazır paket |
+| `...\driver\VDisplayDriver\x64\Release\VDisplayDriver\` | Yerel derleme sonrası |
 
-6. **Alt klasörleri dahil et** işaretli olsun → İleri  
-7. Test imza uyarısı çıkarsa **Yine de yükle** / **Install anyway**  
-8. Bitince **1. Başlat** → **Ekran ayarları**’nda yeni monitörler kontrol et
-
-> Yanlış klasör: sadece `driver\` kökü veya kaynak `.inf` yetmeyebilir. Mutlaka **paket klasörünü** (`dist\driver` veya `...\Release\VDisplayDriver`) göster.
+> Sadece `driver\` kökünü gösterme. Paket klasörü / `.inf` şart.
 
 ---
 

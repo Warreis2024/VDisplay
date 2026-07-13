@@ -38,24 +38,30 @@ If Secure Boot is on, Windows blocks test-signed drivers (*protected by Secure B
 
 ## Manual driver update (Device Manager)
 
-If automatic install is incomplete or Windows leaves an unknown device:
+If **Other devices** shows **VDisplay Virtual Split Monitor Driver** with a yellow bang:
 
-1. Confirm desktop shows **Test Mode**; Secure Boot is off.  
-2. **Win+X** → **Device Manager**  
-3. Find the device (often under **Other devices** with a yellow bang, or **Display adapters** as VDisplay / Unknown)  
-4. Right-click → **Update driver** → **Browse my computer for drivers**  
-5. Point to one of these folders:
+### A) Preferred: Have Disk
+
+1. Helper **4. Stop**  
+2. Device Manager → **Other devices** → **VDisplay Virtual Split Monitor Driver**  
+3. Update driver → Browse my computer  
+4. Click **Let me pick from a list of available drivers on my computer**  
+5. **Have Disk…** → Browse → select:  
+   `C:\VDisplay-main\dist\driver\VDisplayDriver.inf`  
+6. Choose **VDisplay Virtual Monitor Device** → Next  
+7. On test-signature warning → **Install anyway**  
+8. Device should move under **Display adapters**  
+9. Helper **1. Start** → Display settings
+
+### B) Search this folder (can hit INF errors)
+
+Folder: `...\dist\driver` (include subfolders).  
+If you see *“driver installation file does not contain a required entry”*, use **method A** (pick the `.inf` via Have Disk).
 
 | Path | When |
 |------|------|
-| `...\VDisplay-main\dist\driver` | **Preferred** — prebuilt package (`.inf` + `.dll` + `.cat`) |
-| `...\VDisplay-main\driver\VDisplayDriver\x64\Release\VDisplayDriver` | After a local developer build |
-
-6. Keep **Include subfolders** checked → Next  
-7. If Windows warns about the test signature → **Install anyway**  
-8. Then Helper **1. Start** → check **Display settings** for new monitors
-
-> Do not point at the bare `driver\` source root. Use the **package folder** (`dist\driver` or `...\Release\VDisplayDriver`).
+| `...\dist\driver\VDisplayDriver.inf` | **Preferred** |
+| `...\driver\VDisplayDriver\x64\Release\VDisplayDriver\` | After local build |
 
 ---
 

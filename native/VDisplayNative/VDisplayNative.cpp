@@ -34,9 +34,10 @@ extern "C" __declspec(dllexport) long WINAPI VDisplayStartSoftwareDevice()
     }
 
     SW_DEVICE_CREATE_INFO createInfo = { 0 };
+    // Match INF Models: Root\VDisplayDriver and VDisplayDriver (IddSample pattern)
     PCWSTR instanceId = L"VDisplayDriver";
-    PCWSTR hardwareIds = L"VDisplayDriver\0\0";
-    PCWSTR compatibleIds = L"VDisplayDriver\0\0";
+    PCWSTR hardwareIds = L"Root\\VDisplayDriver\0VDisplayDriver\0\0";
+    PCWSTR compatibleIds = L"Root\\VDisplayDriver\0VDisplayDriver\0\0";
 
     createInfo.cbSize = sizeof(createInfo);
     createInfo.pszInstanceId = instanceId;
