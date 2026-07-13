@@ -18,11 +18,25 @@ public static class LayoutPresetBuilder
 
     public static LayoutType DefaultForCount(int count) => count switch
     {
+        1 => LayoutType.Custom,
         2 => LayoutType.TwoVertical,
         3 => LayoutType.ThreeVertical,
         4 => LayoutType.FourGrid,
         _ => LayoutType.Custom
     };
+
+    public static LayoutDefinition BuildForCount(int count, int sourceWidth, int sourceHeight)
+    {
+        count = Math.Clamp(count, 1, 10);
+        return count switch
+        {
+            1 => BuildSingle(sourceWidth, sourceHeight),
+            2 => BuildTwoVertical(sourceWidth, sourceHeight),
+            3 => BuildThreeVertical(sourceWidth, sourceHeight),
+            4 => BuildFourGrid(sourceWidth, sourceHeight),
+            _ => BuildNColumns(count, sourceWidth, sourceHeight)
+        };
+    }
 
     public static void ApplyVirtualMonitorSizes(LayoutDefinition layout, IReadOnlyList<PhysicalMonitorInfo> virtualMonitors)
     {
@@ -42,6 +56,38 @@ public static class LayoutPresetBuilder
             layout.Regions[i].Destination.Width = vm.Width;
             layout.Regions[i].Destination.Height = vm.Height;
         }
+    }
+
+    private static LayoutDefinition BuildSingle(int w, int h)
+    {
+        return new LayoutDefinition
+        {
+            LayoutType = LayoutType.Custom,
+            SourceWidth = w,
+            SourceHeight = h,
+            Regions = [Region(0, 0, 0, w, h, w, h)]
+        };
+    }
+
+    private static LayoutDefinition BuildNColumns(int count, int w, int h)
+    {
+        var regions = new List<VirtualRegion>(count);
+        var baseW = w / count;
+        var used = 0;
+        for (var i = 0; i < count; i++)
+        {
+            var colW = i == count - 1 ? w - used : baseW;
+            regions.Add(Region(i, used, 0, colW, h, colW, h));
+            used += colW;
+        }
+
+        return new LayoutDefinition
+        {
+            LayoutType = LayoutType.Custom,
+            SourceWidth = w,
+            SourceHeight = h,
+            Regions = regions
+        };
     }
 
     private static LayoutDefinition BuildTwoVertical(int w, int h)

@@ -85,7 +85,7 @@ Full reset:
 ## Runtime flow
 
 1. **Service** hosts IPC and capture loop (~60 FPS when split is active).  
-2. **Driver start** creates up to **4** IDD monitors (`VDISPLAY_MONITOR_COUNT`).  
+2. **Driver start** creates up to **10** IDD monitors (`VDISPLAY_MAX_VM`).  
 3. **desktop mode**: driver only — no capture.  
 4. **primary / dual**: layout crops physical DXGI frames into shared memory; driver presents them.  
 5. **Tray** reads shared frames (or DXGI fallback) and can inject mouse/keyboard to a VM.
@@ -133,7 +133,7 @@ Service must be running.
 .\scripts\vdisplay.ps1 help
 .\scripts\vdisplay.ps1 status
 .\scripts\vdisplay.ps1 driver start|stop
-.\scripts\vdisplay.ps1 vm set 2|3|4
+.\scripts\vdisplay.ps1 vm set 1-10
 .\scripts\vdisplay.ps1 layout set TwoVertical|TwoHorizontal|ThreeVertical|FourGrid
 .\scripts\vdisplay.ps1 monitors physical|all
 .\scripts\vdisplay.ps1 capture start|stop

@@ -7,25 +7,20 @@ namespace VDisplay.Tray;
 [SupportedOSPlatform("windows")]
 internal static class VirtualMonitorDiscovery
 {
+    /// <summary>
+    /// Only returns monitors that belong to the VDisplay IDD driver.
+    /// Never treats smaller physical screens as virtual (old heuristic bug).
+    /// </summary>
     public static List<PhysicalMonitorInfo> GetVirtualMonitors()
     {
-        var all = EnumerateAllMonitors();
-        if (all.Count == 0)
+        var virtualDeviceNames = BuildVirtualDeviceNames();
+        if (virtualDeviceNames.Count == 0)
         {
             return [];
         }
 
-        var virtualNames = BuildVirtualDeviceNames();
-        var maxArea = all.Max(m => (long)m.Width * m.Height);
-
-        var physicalNames = all
-            .Where(m => (long)m.Width * m.Height == maxArea)
-            .Where(m => !virtualNames.Contains(NormalizeDeviceName(m.Name)))
-            .Select(m => NormalizeDeviceName(m.Name))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        return all
-            .Where(m => !physicalNames.Contains(NormalizeDeviceName(m.Name)))
+        return EnumerateAllMonitors()
+            .Where(m => virtualDeviceNames.Contains(NormalizeDeviceName(m.Name)))
             .OrderBy(m => m.X)
             .ThenBy(m => m.Y)
             .Select((m, i) =>
@@ -96,6 +91,8 @@ internal static class VirtualMonitorDiscovery
                 if (virtualAdapter || IsVirtualMonitorDevice(monitor))
                 {
                     names.Add(NormalizeDeviceName(monitor.DeviceName));
+                    // DISPLAY1 style from GetMonitorInfo
+                    names.Add(NormalizeDeviceName(adapter.DeviceName));
                 }
 
                 monitor = CreateDisplayDevice();
@@ -129,6 +126,7 @@ internal static class VirtualMonitorDiscovery
             || value.Contains("VDisplayDriver", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Indirect Display", StringComparison.OrdinalIgnoreCase)
             || value.Contains("IndirectDisplay", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("IddSampleDriver", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Virtual Monitor", StringComparison.OrdinalIgnoreCase));
 
     private static DISPLAY_DEVICE CreateDisplayDevice() =>

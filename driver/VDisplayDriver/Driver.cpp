@@ -27,7 +27,7 @@ using namespace Microsoft::WRL;
 
 #pragma region SampleMonitors
 
-static constexpr DWORD VDISPLAY_MONITOR_COUNT = 4;
+static constexpr DWORD VDISPLAY_MONITOR_COUNT = VDISPLAY_MAX_VM;
 
 // Default modes reported for edid-less monitors. The first mode is set as preferred
 static const struct IndirectSampleMonitor::SampleMonitorMode s_SampleDefaultModes[] = 

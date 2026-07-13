@@ -35,7 +35,8 @@ public partial class MainViewModel : ObservableObject
     [
         "2 Dikey", "2 Yatay", "3 Dikey", "4 Grid"
     ];
-    public ObservableCollection<string> MonitorCountOptions { get; } = ["2", "3", "4"];
+    public ObservableCollection<string> MonitorCountOptions { get; } =
+        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
     public MainViewModel()
     {
@@ -53,7 +54,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task ApplyMonitorCountAsync()
     {
-        var count = SelectedMonitorCountIndex + 2;
+        var count = SelectedMonitorCountIndex + 1;
         var payload = JsonSerializer.Serialize(new { count });
         await ExecuteAsync(IpcCommand.SetMonitorCount, payload);
     }
@@ -190,9 +191,9 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(Monitors));
 
-        if (status.MonitorCount is >= 2 and <= 4)
+        if (status.MonitorCount is >= 1 and <= 10)
         {
-            SelectedMonitorCountIndex = status.MonitorCount - 2;
+            SelectedMonitorCountIndex = status.MonitorCount - 1;
         }
 
         SelectedLayoutIndex = status.CurrentLayout switch

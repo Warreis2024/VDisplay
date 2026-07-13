@@ -152,7 +152,7 @@ internal static class Program
               ping
               status
               driver start|stop
-              vm set <2|3|4>
+              vm set <1-10>
               layout set <TwoVertical|TwoHorizontal|ThreeVertical|FourGrid>
               monitors physical
               source set <index>
@@ -247,9 +247,9 @@ internal static class Program
     private static async Task<int> VmAsync(string[] args)
     {
         if (args.Length < 3 || !args[1].Equals("set", StringComparison.OrdinalIgnoreCase)
-            || !int.TryParse(args[2], out var count) || count is < 2 or > 4)
+            || !int.TryParse(args[2], out var count) || count is < 1 or > 10)
         {
-            Console.Error.WriteLine("Kullanim: vm set <2|3|4>");
+            Console.Error.WriteLine("Kullanim: vm set <1-10>");
             return 1;
         }
 

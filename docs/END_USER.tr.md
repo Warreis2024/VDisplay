@@ -18,11 +18,15 @@ Windows her sanal monitörü (VM) **gerçek ekran** gibi görür:
 
 ## İlk kurulum (bir kez)
 
-1. Proje klasöründe **`Start-VDisplay.cmd`** dosyasına çift tıkla  
-2. **İlk kurulum (sürücü)** → yönetici onayını ver  
-3. **Test Mode** yazısı çıktıysa bilgisayarı yeniden başlat, Yardımcı’yı aç, kurulumu bir kez daha çalıştır  
-4. **Kullanım modu** seç → **Ayarları kaydet** → **1. Başlat**  
-5. **Ekran ayarları** → VM’leri fiziksel monitörlerin **yanına** koy (üst üste değil)
+1. Bu makinede **Visual Studio 2022 + WDK** kurulu olsun (`.\scripts\check-wdk.ps1`)
+2. Proje klasöründe **`Start-VDisplay.cmd`** çift tıkla  
+3. **İlk kurulum (sürücü)** → yönetici onayını ver  
+4. **Test Mode** yazısı çıktıysa bilgisayarı **yeniden başlat**, Yardımcı’yı aç, **İlk kurulum**’u bir kez daha çalıştır (sürücü kurulum kodu **0** olmalı)  
+5. **Kullanım modu** seç → **Ayarları kaydet** → **1. Başlat** (servis bağlanana kadar bekler)  
+6. **Ekran ayarları**’nda yeni monitörler görünmeli → yan yana yerleştir  
+7. Ancak ondan sonra **Tray önizleme** (fiziksel ekranlar VM değildir)
+
+`install-driver` kod=1 ise genelde: reboot yapılmamış, sürücü derlenmemiş (WDK yok) veya paket yolu yanlış.
 
 ---
 
@@ -51,7 +55,7 @@ Yardımcıda mod seç → **Ayarları kaydet** → **Başlat**.
 
 | Ayar | Nasıl |
 |------|--------|
-| VM sayısı | 2 / 3 / 4 |
+| VM sayısı | 1–10 |
 | Mod | desktop / dual / primary |
 | Yeni çözünürlük (ör. 720×720) | Genişlik × yükseklik @ Hz → **Listeye ekle** → **Ayarları kaydet** |
 | Sil | Seç → **Seçileni sil** → kaydet |

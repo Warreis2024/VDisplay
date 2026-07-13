@@ -31,8 +31,13 @@ public sealed class LayoutManager
 
     public LayoutDefinition ApplyLayoutForCount(int monitorCount, PhysicalMonitorInfo sourceMonitor)
     {
-        var layoutType = LayoutPresetBuilder.DefaultForCount(monitorCount);
-        return ApplyLayout(layoutType, monitorCount, sourceMonitor);
+        lock (_sync)
+        {
+            _layoutType = LayoutPresetBuilder.DefaultForCount(monitorCount);
+            _sourceMonitorIndex = sourceMonitor.Index;
+            _activeLayout = LayoutPresetBuilder.BuildForCount(monitorCount, sourceMonitor.Width, sourceMonitor.Height);
+            return _activeLayout;
+        }
     }
 
     public void SetLayout(LayoutType layoutType, int monitorCount, PhysicalMonitorInfo sourceMonitor)

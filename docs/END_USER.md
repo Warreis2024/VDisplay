@@ -53,7 +53,7 @@ In Helper:
 
 | Setting | How |
 |---------|-----|
-| VM count | 2 / 3 / 4 |
+| VM count | 1–10 |
 | Mode | desktop / dual / primary |
 | Add resolution (e.g. 720×720) | Width × Height @ Hz → **Add to list** → **Save settings** |
 | Remove | Select → **Remove selected** → save |

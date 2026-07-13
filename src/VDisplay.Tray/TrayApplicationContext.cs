@@ -34,16 +34,27 @@ internal sealed class TrayApplicationContext : ApplicationContext
         SyncIcons();
     }
 
+    private bool _warnedNoVm;
+
     private void SyncIcons()
     {
         var vms = VirtualMonitorDiscovery.GetVirtualMonitors();
         if (vms.Count == 0)
         {
-            _notifyIcon.Text = "VDisplay VM (VM yok)";
+            _notifyIcon.Text = "VDisplay VM (VM yok — sürücü/start?)";
+            if (!_warnedNoVm)
+            {
+                _warnedNoVm = true;
+                _notifyIcon.BalloonTipTitle = "VDisplay";
+                _notifyIcon.BalloonTipText = "Sanal monitör yok. Helper'da İlk kurulum + Başlat gerekir.";
+                _notifyIcon.ShowBalloonTip(4000);
+            }
+
             ClearIcons();
             return;
         }
 
+        _warnedNoVm = false;
         _notifyIcon.Text = $"VDisplay VM ({vms.Count})";
 
         if (_icons.Count == vms.Count

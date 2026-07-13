@@ -55,9 +55,9 @@ public sealed class MonitorManager
 
     public void SetMonitorCount(int count)
     {
-        if (count is < 1 or > 4)
+        if (count is < 1 or > 10)
         {
-            throw new ArgumentOutOfRangeException(nameof(count), "Monitör sayısı 1-4 arasında olmalı.");
+            throw new ArgumentOutOfRangeException(nameof(count), "Monitör sayısı 1-10 arasında olmalı.");
         }
 
         lock (_sync)

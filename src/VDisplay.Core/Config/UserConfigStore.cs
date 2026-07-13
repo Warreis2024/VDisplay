@@ -14,7 +14,7 @@ public sealed class VDisplayUserConfig
 {
     public int Version { get; set; } = 1;
 
-    /// <summary>Aktif sanal monitör sayısı (2–4).</summary>
+    /// <summary>Aktif sanal monitör sayısı (1–10).</summary>
     public int MonitorCount { get; set; } = 4;
 
     /// <summary>
@@ -112,7 +112,7 @@ public static class UserConfigStore
 
     private static void Normalize(VDisplayUserConfig config)
     {
-        config.MonitorCount = Math.Clamp(config.MonitorCount, 2, 4);
+        config.MonitorCount = Math.Clamp(config.MonitorCount, 1, 10);
         config.SplitMode = config.SplitMode?.Trim().ToLowerInvariant() switch
         {
             "primary" or "single" => "primary",

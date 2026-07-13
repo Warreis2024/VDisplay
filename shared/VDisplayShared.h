@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-#define VDISPLAY_MAX_VM 4
+#define VDISPLAY_MAX_VM 10
 #define VDISPLAY_MAX_FRAME_W 1920
 #define VDISPLAY_MAX_FRAME_H 1080
 #define VDISPLAY_FRAME_PITCH (VDISPLAY_MAX_FRAME_W * 4)

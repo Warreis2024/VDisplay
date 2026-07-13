@@ -77,7 +77,7 @@ Sıfırlama: `.\scripts\reset-vdisplay.ps1` (yönetici)
 ## Çalışma akışı
 
 1. Servis IPC + capture döngüsünü çalıştırır.  
-2. `driver start` en fazla **4** IDD monitör oluşturur.  
+2. `driver start` en fazla **10** IDD monitör oluşturur.  
 3. **desktop**: sadece sürücü (capture yok).  
 4. **primary / dual**: DXGI → kırp → shared memory → sürücü.  
 5. Tray shared frame okur; mouse/klavye enjekte edebilir.
@@ -115,7 +115,7 @@ Shared buffer üst sınırı: **1920×1080** (`shared/VDisplayShared.h`).
 ```powershell
 .\scripts\vdisplay.ps1 help
 .\scripts\vdisplay.ps1 driver start|stop
-.\scripts\vdisplay.ps1 vm set 2|3|4
+.\scripts\vdisplay.ps1 vm set 1-10
 .\scripts\vdisplay.ps1 vm-split setup primary|dual|stop
 .\scripts\vdisplay.ps1 monitors all
 .\scripts\vdisplay.ps1 status

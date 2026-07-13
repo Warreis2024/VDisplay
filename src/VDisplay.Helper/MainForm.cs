@@ -34,23 +34,30 @@ internal sealed class MainForm : Form
             RowCount = 4,
             Padding = new Padding(12)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
 
-        // --- Büyük aksiyonlar ---
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
+        // --- Büyük aksiyonlar (numaralı) ---
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            WrapContents = true,
+            AutoScroll = true
+        };
+        // Sıra: 0 → 1 → 2 (acemi akışı)
+        actions.Controls.Add(BigButton("0. İlk kurulum", Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync(), width: 150));
         actions.Controls.Add(BigButton("1. Başlat", Color.FromArgb(46, 125, 50), async (_, _) => await StartAllAsync()));
-        actions.Controls.Add(BigButton("Durdur", Color.FromArgb(198, 40, 40), (_, _) => StopAll()));
-        actions.Controls.Add(BigButton("Tray önizleme", Color.FromArgb(25, 118, 210), (_, _) => StartTray()));
-        actions.Controls.Add(BigButton("Ekran ayarları", Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings()));
+        actions.Controls.Add(BigButton("2. Tray aç", Color.FromArgb(25, 118, 210), (_, _) => StartTray()));
+        actions.Controls.Add(BigButton("3. Tray kapat", Color.FromArgb(13, 71, 161), (_, _) => StopTray()));
+        actions.Controls.Add(BigButton("4. Durdur", Color.FromArgb(198, 40, 40), (_, _) => StopAll()));
+        actions.Controls.Add(BigButton("5. Ekran ayarları", Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings(), width: 150));
         root.Controls.Add(actions, 0, 0);
 
-        var setup = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
-        setup.Controls.Add(BigButton("İlk kurulum (sürücü)", Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync()));
-        setup.Controls.Add(BigButton("Ayarları kaydet", Color.FromArgb(0, 105, 92), (_, _) => SaveSettings()));
-        setup.Controls.Add(BigButton("JSON klasörü", Color.Gray, (_, _) => OpenConfigFolder()));
+        var setup = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = true };
+        setup.Controls.Add(BigButton("6. Ayarları kaydet", Color.FromArgb(0, 105, 92), (_, _) => SaveSettings(), width: 150));
+        setup.Controls.Add(BigButton("7. JSON klasörü", Color.Gray, (_, _) => OpenConfigFolder()));
         root.Controls.Add(setup, 0, 1);
 
         // --- Ayar paneli ---
@@ -60,8 +67,8 @@ internal sealed class MainForm : Form
         settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
 
         var left = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-        left.Controls.Add(new Label { Text = "VM sayısı (2–4)", AutoSize = true });
-        _monitorCount = new NumericUpDown { Minimum = 2, Maximum = 4, Value = _config.MonitorCount, Width = 80 };
+        left.Controls.Add(new Label { Text = "VM sayısı (1–10)", AutoSize = true });
+        _monitorCount = new NumericUpDown { Minimum = 1, Maximum = 10, Value = Math.Clamp(_config.MonitorCount, 1, 10), Width = 80 };
         left.Controls.Add(_monitorCount);
         left.Controls.Add(new Label { Text = "Kullanım modu", AutoSize = true, Margin = new Padding(0, 12, 0, 0) });
         _splitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 280 };
@@ -124,11 +131,10 @@ internal sealed class MainForm : Form
 
         Controls.Add(root);
         Log($"Ayar dosyası: {UserConfigStore.JsonPath}");
-        Log("desktop = ek masaüstü | dual/primary = fiziksel ekranı VM'lere böl.");
-        Log("Günlük: mod seç → «1. Başlat» → Ekran ayarları.");
+        Log("Sıra: 0 İlk kurulum → 1 Başlat → 2 Tray aç | 3 Tray kapat | 4 Durdur");
     }
 
-    private static Button BigButton(string text, Color back, EventHandler onClick)
+    private static Button BigButton(string text, Color back, EventHandler onClick, int width = 130)
     {
         var btn = new Button
         {
@@ -137,8 +143,8 @@ internal sealed class MainForm : Form
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Height = 42,
-            Width = 160,
-            Margin = new Padding(0, 0, 8, 0)
+            Width = width,
+            Margin = new Padding(0, 0, 8, 8)
         };
         btn.FlatAppearance.BorderSize = 0;
         btn.Click += onClick;
@@ -232,21 +238,64 @@ internal sealed class MainForm : Form
 
     private async Task FirstTimeSetupAsync()
     {
-        Log("İlk kurulum: test imzalama + sürücü (yönetici gerekir)...");
+        Log("İlk kurulum başlıyor (yönetici gerekir)...");
         PullUiToConfig();
         UserConfigStore.Save(_config);
 
         var root = FindRepoRoot();
         if (root is null)
         {
-            Log("HATA: Proje kökü bulunamadı.");
+            Log("HATA: Proje kökü bulunamadı (VDisplay.sln yanında Start-VDisplay.cmd çalıştır).");
             return;
         }
 
-        await RunElevatedScriptAsync(Path.Combine(root, "scripts", "enable-test-signing.ps1"));
-        Log("Not: Test imzalama yeni açıldıysa bilgisayarı yeniden başlat, sonra tekrar «İlk kurulum».");
-        await RunElevatedScriptAsync(Path.Combine(root, "scripts", "install-driver.ps1"));
-        Log("Sürücü kurulumu denendi.");
+        // 1) Test signing
+        var signCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "enable-test-signing.ps1"));
+        if (signCode != 0)
+        {
+            Log("HATA: Test imzalama açılamadı. Yönetici onayı verildi mi?");
+            return;
+        }
+
+        Log("ÖNEMLİ: Test Mode yeni açıldıysa şimdi bilgisayarı YENİDEN BAŞLAT.");
+        Log("Yeniden başladıktan sonra Yardımcı → «İlk kurulum» tekrar.");
+
+        // 2) Driver package must exist (WDK + build)
+        var packageDir = Path.Combine(root, "driver", "VDisplayDriver", "x64", "Release", "VDisplayDriver");
+        var inf = Path.Combine(packageDir, "VDisplayDriver.inf");
+        var dll = Path.Combine(packageDir, "VDisplayDriver.dll");
+        if (!File.Exists(inf) || !File.Exists(dll))
+        {
+            Log("Sürücü paketi yok — derleniyor (WDK gerekli, 1–5 dk)...");
+            var buildCode = await RunScriptAsync(Path.Combine(root, "scripts", "build-driver.ps1"), elevate: false);
+            if (buildCode != 0 || !File.Exists(dll))
+            {
+                Log("HATA: Sürücü derlenemedi. Bu makinede Visual Studio 2022 + WDK kurulu olmalı.");
+                Log($"Beklenen paket: {packageDir}");
+                Log("Manuel: .\\scripts\\build-driver.ps1");
+                return;
+            }
+
+            Log("Sürücü derlendi.");
+        }
+        else
+        {
+            Log($"Sürücü paketi bulundu: {packageDir}");
+        }
+
+        // 3) Install
+        var installCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "install-driver.ps1"));
+        if (installCode != 0)
+        {
+            Log("HATA: Sürücü kurulumu başarısız (kod=" + installCode + ").");
+            Log("Tipik nedenler:");
+            Log("  • Yeniden başlatılmadı (testsigning henüz aktif değil)");
+            Log("  • Paket/imza eksik — build-driver.ps1 çalıştır");
+            Log("  • Yönetici PowerShell'de: .\\scripts\\install-driver.ps1");
+            return;
+        }
+
+        Log("Sürücü kuruldu. Şimdi «1. Başlat» → sonra «2. Tray aç».");
     }
 
     private async Task StartAllAsync()
@@ -262,12 +311,18 @@ internal sealed class MainForm : Form
         }
 
         EnsureService(root);
-        await Task.Delay(1500);
+        Log("Servisin ayağa kalkması bekleniyor...");
+        if (!await WaitForServiceAsync(root, TimeSpan.FromSeconds(90)))
+        {
+            Log("HATA: Servise bağlanılamadı. İlk derleme uzun sürebilir; tekrar «1. Başlat» dene.");
+            Log("Veya manuel: dotnet run --project src\\VDisplay.Service");
+            return;
+        }
 
         var code = await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["driver", "start"]);
         if (code != 0)
         {
-            Log("Sürücü start başarısız — önce «İlk kurulum» yap.");
+            Log("Sürücü start başarısız — önce «İlk kurulum» (sürücü + reboot) tamamlanmalı.");
             return;
         }
 
@@ -275,16 +330,15 @@ internal sealed class MainForm : Form
 
         if (_config.SplitMode == "desktop")
         {
-            // Önceki split/capture varsa kapat; VM'ler boş ek masaüstü kalsın.
             await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["vm-split", "stop"]);
             Log("Masaüstü modu: VM'ler sadece ek ekran (capture yok).");
-            Log("«Ekran ayarları» → Genişlet → pencereleri VM'lere taşı.");
+            Log("«Ekran ayarları» → Genişlet → yeni monitörleri yan yana koy.");
             return;
         }
 
         await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["vm-split", "setup", _config.SplitMode]);
         Log("Split modu aktif. «Ekran ayarları» → VM'leri yan yana yerleştir.");
-        Log("İstersen «Tray önizleme» ile canlı bak.");
+        Log("İstersen «Tray önizleme» ile canlı bak (sadece sanal monitörler).");
     }
 
     private void StopAll()
@@ -311,7 +365,26 @@ internal sealed class MainForm : Form
             try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
         }
 
-        Log("Durduruldu.");
+        Log("Durduruldu (servis + sürücü komutları + tray).");
+    }
+
+    private void StopTray()
+    {
+        var killed = 0;
+        foreach (var p in Process.GetProcessesByName("VDisplay.Tray"))
+        {
+            try
+            {
+                p.Kill(entireProcessTree: true);
+                killed++;
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        Log(killed > 0 ? $"3. Tray kapatıldı ({killed} süreç)." : "Tray zaten kapalı.");
     }
 
     private void StartTray()
@@ -322,6 +395,15 @@ internal sealed class MainForm : Form
             return;
         }
 
+        if (Process.GetProcessesByName("VDisplay.Tray").Length > 0)
+        {
+            Log("Tray zaten açık. Kapatmak için «3. Tray kapat».");
+            return;
+        }
+
+        Log("2. Tray: yalnızca VDisplay sanal monitörlerini gösterir.");
+        Log("Önce «1. Başlat» başarılı olmalı; Ekran ayarlarında yeni monitörler görünmeli.");
+
         Process.Start(new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -330,7 +412,7 @@ internal sealed class MainForm : Form
             UseShellExecute = false,
             CreateNoWindow = true
         });
-        Log("Tray başlatıldı.");
+        Log("Tray başlatıldı. 'VM yok' görürsen sürücü/start tamamlanmamış demektir.");
     }
 
     private void EnsureService(string root)
@@ -349,7 +431,25 @@ internal sealed class MainForm : Form
             UseShellExecute = false,
             CreateNoWindow = true
         });
-        Log("Servis başlatıldı.");
+        Log("Servis başlatıldı (arka plan).");
+    }
+
+    private async Task<bool> WaitForServiceAsync(string root, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var code = await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["ping"]);
+            if (code == 0)
+            {
+                Log("Servis hazır.");
+                return true;
+            }
+
+            await Task.Delay(1500);
+        }
+
+        return false;
     }
 
     private async Task<int> RunDotnetAsync(string root, string project, string[] args)
@@ -392,12 +492,15 @@ internal sealed class MainForm : Form
         return p.ExitCode;
     }
 
-    private async Task RunElevatedScriptAsync(string scriptPath)
+    private async Task<int> RunElevatedScriptAsync(string scriptPath) =>
+        await RunScriptAsync(scriptPath, elevate: true);
+
+    private async Task<int> RunScriptAsync(string scriptPath, bool elevate)
     {
         if (!File.Exists(scriptPath))
         {
             Log($"Script yok: {scriptPath}");
-            return;
+            return 1;
         }
 
         var psi = new ProcessStartInfo
@@ -405,21 +508,25 @@ internal sealed class MainForm : Form
             FileName = "powershell.exe",
             Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
             UseShellExecute = true,
-            Verb = "runas"
+            Verb = elevate ? "runas" : null
         };
 
         try
         {
             using var p = Process.Start(psi);
-            if (p is not null)
+            if (p is null)
             {
-                await p.WaitForExitAsync();
-                Log($"Script bitti ({Path.GetFileName(scriptPath)}), kod={p.ExitCode}");
+                return 1;
             }
+
+            await p.WaitForExitAsync();
+            Log($"Script bitti ({Path.GetFileName(scriptPath)}), kod={p.ExitCode}");
+            return p.ExitCode;
         }
         catch (Exception ex)
         {
-            Log($"Yönetici onayı iptal / hata: {ex.Message}");
+            Log($"Script hatası / iptal: {ex.Message}");
+            return 1;
         }
     }
 
