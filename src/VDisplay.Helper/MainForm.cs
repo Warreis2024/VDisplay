@@ -660,7 +660,7 @@ internal sealed class MainForm : Form
                 return;
             }
 
-            var text = File.ReadAllText(path).Trim();
+            var text = ReadLogFile(path).Trim();
             if (string.IsNullOrWhiteSpace(text))
             {
                 return;
@@ -675,6 +675,19 @@ internal sealed class MainForm : Form
         {
             // ignore
         }
+    }
+
+    private static string ReadLogFile(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+        {
+            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+        }
+
+        // Scripts now write ASCII/UTF-8; loose UTF-8 avoids OEM mojibake crashes
+        return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false)
+            .GetString(bytes);
     }
 
     private async Task<bool> WaitForServiceAsync(string root, TimeSpan timeout)

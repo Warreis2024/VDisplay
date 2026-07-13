@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Configuration = "Release",
     [string]$Platform = "x64"
 )
@@ -10,11 +10,12 @@ $distDir = Join-Path $root "dist\driver"
 $logDir = Join-Path $env:ProgramData "VDisplay"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "install-driver.log"
-"" | Set-Content -Path $logFile -Encoding UTF8
+[System.IO.File]::WriteAllText($logFile, "", (New-Object System.Text.UTF8Encoding $false))
 
 function Write-Log([string]$msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
-    Add-Content -Path $logFile -Value $line -Encoding UTF8
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::AppendAllText($logFile, $line + [Environment]::NewLine, $utf8)
     Write-Host $msg
 }
 
@@ -23,7 +24,7 @@ function Test-Admin {
 }
 
 function Test-TestSigningEnabled {
-    # Sadece calisan cekirdek — BCD reboot oncesi Yes gosterebilir
+    # Sadece calisan cekirdek â€” BCD reboot oncesi Yes gosterebilir
     try {
         Add-Type -Namespace VDisplayInstall -Name CiQuery -ErrorAction Stop -MemberDefinition @"
 using System;
