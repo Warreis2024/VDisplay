@@ -333,31 +333,40 @@ internal sealed class MainForm : Form
             return;
         }
 
-        var signCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "enable-test-signing.ps1"));
-        AppendProgramDataLog("enable-test-signing.log");
-
-        // 2 = yeni açıldı → reboot şart; kurulum yapma
-        if (signCode == 2)
+        // Çekirdekte zaten aktifse enable atla
+        if (IsTestSigningActive())
         {
-            LogT("log_reboot_required_now");
-            LogT("log_reboot_again");
-            return;
+            LogT("log_testsign_ok");
         }
-
-        if (signCode != 0)
+        else
         {
-            LogT("log_testsign_fail");
-            return;
-        }
+            // CMD + Sysnative bcdedit (PowerShell UAC/WOW64 sorunlarını aşar)
+            var enableCmd = Path.Combine(root, "scripts", "enable-test-signing.cmd");
+            var signCode = await RunElevatedCmdAsync(enableCmd);
+            AppendProgramDataLog("enable-test-signing.log");
 
-        if (!IsTestSigningActive())
-        {
-            LogT("log_reboot_required_now");
-            LogT("log_reboot_again");
-            return;
-        }
+            if (signCode == 2)
+            {
+                LogT("log_reboot_required_now");
+                LogT("log_reboot_again");
+                return;
+            }
 
-        LogT("log_testsign_ok");
+            if (signCode != 0)
+            {
+                LogT("log_testsign_fail");
+                return;
+            }
+
+            if (!IsTestSigningActive())
+            {
+                LogT("log_reboot_required_now");
+                LogT("log_reboot_again");
+                return;
+            }
+
+            LogT("log_testsign_ok");
+        }
 
         var packageDir = Path.Combine(root, "dist", "driver");
         var inf = Path.Combine(packageDir, "VDisplayDriver.inf");
@@ -729,6 +738,41 @@ internal sealed class MainForm : Form
     private async Task<int> RunElevatedScriptAsync(string scriptPath) =>
         await RunScriptAsync(scriptPath, elevate: true);
 
+    private async Task<int> RunElevatedCmdAsync(string cmdPath)
+    {
+        if (!File.Exists(cmdPath))
+        {
+            LogT("log_script_missing", cmdPath);
+            return 1;
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = GetCmdPath(),
+            Arguments = $"/c \"\"{cmdPath}\"\"",
+            UseShellExecute = true,
+            Verb = "runas"
+        };
+
+        try
+        {
+            using var p = Process.Start(psi);
+            if (p is null)
+            {
+                return 1;
+            }
+
+            await p.WaitForExitAsync();
+            LogT("log_script_done", Path.GetFileName(cmdPath), p.ExitCode);
+            return p.ExitCode;
+        }
+        catch (Exception ex)
+        {
+            LogT("log_script_error", ex.Message);
+            return 1;
+        }
+    }
+
     private async Task<int> RunScriptAsync(string scriptPath, bool elevate)
     {
         if (!File.Exists(scriptPath))
@@ -762,6 +806,21 @@ internal sealed class MainForm : Form
             LogT("log_script_error", ex.Message);
             return 1;
         }
+    }
+
+    private static string GetCmdPath()
+    {
+        var windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+        {
+            var sysnative = Path.Combine(windir, "Sysnative", "cmd.exe");
+            if (File.Exists(sysnative))
+            {
+                return sysnative;
+            }
+        }
+
+        return Path.Combine(windir, "System32", "cmd.exe");
     }
 
     private static string GetPowerShellPath()
