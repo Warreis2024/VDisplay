@@ -1,6 +1,7 @@
 {
   "version": 1,
   "monitorCount": 4,
+  "language": "tr",
   "splitMode": "desktop",
   "preferredModeIndex": 0,
   "modes": [

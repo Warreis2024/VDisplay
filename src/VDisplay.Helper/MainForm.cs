@@ -11,21 +11,33 @@ internal sealed class MainForm : Form
     private readonly TextBox _log;
     private readonly NumericUpDown _monitorCount;
     private readonly ComboBox _splitMode;
+    private readonly ComboBox _language;
     private readonly ListBox _modesList;
     private readonly NumericUpDown _modeW;
     private readonly NumericUpDown _modeH;
     private readonly NumericUpDown _modeHz;
+    private readonly Button[] _actionButtons = new Button[8];
+    private readonly GroupBox _settingsGroup;
+    private readonly GroupBox _logBox;
+    private readonly Label _labelLanguage;
+    private readonly Label _labelVmCount;
+    private readonly Label _labelMode;
+    private readonly Label _labelAddRes;
+    private readonly Button _addBtn;
+    private readonly Button _removeBtn;
     private VDisplayUserConfig _config = UserConfigStore.LoadOrCreate();
     private Process? _serviceProcess;
+    private bool _suppressLanguageEvent;
 
     public MainForm()
     {
-        Text = "VDisplay Yardımcı";
+        Localization.Load(_config.Language);
+
         Width = 720;
-        Height = 620;
+        Height = 640;
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 10f);
-        MinimumSize = new Size(640, 520);
+        MinimumSize = new Size(640, 540);
 
         var root = new TableLayoutPanel
         {
@@ -38,7 +50,6 @@ internal sealed class MainForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
 
-        // 2×4 eşit buton ızgarası (0→7)
         var actions = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -55,54 +66,50 @@ internal sealed class MainForm : Form
         actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
         actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
 
-        void Place(int col, int row, Button btn)
+        void Place(int col, int row, int index, Color color, EventHandler onClick)
         {
+            var btn = BigButton("", color, onClick);
             btn.Dock = DockStyle.Fill;
             btn.Margin = new Padding(4);
+            _actionButtons[index] = btn;
             actions.Controls.Add(btn, col, row);
         }
 
-        Place(0, 0, BigButton("0. İlk kurulum", Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync()));
-        Place(1, 0, BigButton("1. Başlat", Color.FromArgb(46, 125, 50), async (_, _) => await StartAllAsync()));
-        Place(2, 0, BigButton("2. Tray aç", Color.FromArgb(25, 118, 210), (_, _) => StartTray()));
-        Place(3, 0, BigButton("3. Tray kapat", Color.FromArgb(13, 71, 161), (_, _) => StopTray()));
-        Place(0, 1, BigButton("4. Durdur", Color.FromArgb(198, 40, 40), (_, _) => StopAll()));
-        Place(1, 1, BigButton("5. Ekran ayarları", Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings()));
-        Place(2, 1, BigButton("6. Ayarları kaydet", Color.FromArgb(0, 105, 92), (_, _) => SaveSettings()));
-        Place(3, 1, BigButton("7. JSON klasörü", Color.Gray, (_, _) => OpenConfigFolder()));
+        Place(0, 0, 0, Color.FromArgb(94, 53, 177), async (_, _) => await FirstTimeSetupAsync());
+        Place(1, 0, 1, Color.FromArgb(46, 125, 50), async (_, _) => await StartAllAsync());
+        Place(2, 0, 2, Color.FromArgb(25, 118, 210), (_, _) => StartTray());
+        Place(3, 0, 3, Color.FromArgb(13, 71, 161), (_, _) => StopTray());
+        Place(0, 1, 4, Color.FromArgb(198, 40, 40), (_, _) => StopAll());
+        Place(1, 1, 5, Color.FromArgb(69, 90, 100), (_, _) => OpenDisplaySettings());
+        Place(2, 1, 6, Color.FromArgb(0, 105, 92), (_, _) => SaveSettings());
+        Place(3, 1, 7, Color.Gray, (_, _) => OpenConfigFolder());
         root.Controls.Add(actions, 0, 0);
 
-        // --- Ayar paneli ---
-        var settings = new GroupBox { Text = "Kullanıcı ayarları (JSON)", Dock = DockStyle.Fill, Padding = new Padding(10) };
+        _settingsGroup = new GroupBox { Dock = DockStyle.Fill, Padding = new Padding(10) };
         var settingsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3 };
         settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
         settingsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
 
         var left = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-        left.Controls.Add(new Label { Text = "VM sayısı (1–10)", AutoSize = true });
+
+        _labelLanguage = new Label { AutoSize = true };
+        left.Controls.Add(_labelLanguage);
+        _language = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
+        _language.SelectedIndexChanged += LanguageChanged;
+        left.Controls.Add(_language);
+
+        _labelVmCount = new Label { AutoSize = true, Margin = new Padding(0, 12, 0, 0) };
+        left.Controls.Add(_labelVmCount);
         _monitorCount = new NumericUpDown { Minimum = 1, Maximum = 10, Value = Math.Clamp(_config.MonitorCount, 1, 10), Width = 80 };
         left.Controls.Add(_monitorCount);
-        left.Controls.Add(new Label { Text = "Kullanım modu", AutoSize = true, Margin = new Padding(0, 12, 0, 0) });
+
+        _labelMode = new Label { AutoSize = true, Margin = new Padding(0, 12, 0, 0) };
+        left.Controls.Add(_labelMode);
         _splitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 280 };
-        _splitMode.Items.AddRange(
-        [
-            "desktop — sadece ek masaüstü (capture yok)",
-            "dual — 2 ekran → 4 VM (split)",
-            "primary — 1 ekran → 2 VM (split)"
-        ]);
-        _splitMode.SelectedIndex = _config.SplitMode switch
-        {
-            "primary" => 2,
-            "dual" => 1,
-            _ => 0
-        };
         left.Controls.Add(_splitMode);
-        left.Controls.Add(new Label
-        {
-            Text = "Çözünürlük ekle:",
-            AutoSize = true,
-            Margin = new Padding(0, 16, 0, 0)
-        });
+
+        _labelAddRes = new Label { AutoSize = true, Margin = new Padding(0, 16, 0, 0) };
+        left.Controls.Add(_labelAddRes);
         var addRow = new FlowLayoutPanel { AutoSize = true };
         _modeW = new NumericUpDown { Minimum = 640, Maximum = 3840, Value = 720, Width = 70 };
         _modeH = new NumericUpDown { Minimum = 480, Maximum = 2160, Value = 720, Width = 70 };
@@ -113,21 +120,21 @@ internal sealed class MainForm : Form
         addRow.Controls.Add(new Label { Text = "@", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
         addRow.Controls.Add(_modeHz);
         left.Controls.Add(addRow);
-        var addBtn = new Button { Text = "Listeye ekle", AutoSize = true };
-        addBtn.Click += (_, _) => AddMode();
-        left.Controls.Add(addBtn);
-        var removeBtn = new Button { Text = "Seçileni sil", AutoSize = true };
-        removeBtn.Click += (_, _) => RemoveSelectedMode();
-        left.Controls.Add(removeBtn);
+
+        _addBtn = new Button { AutoSize = true };
+        _addBtn.Click += (_, _) => AddMode();
+        left.Controls.Add(_addBtn);
+        _removeBtn = new Button { AutoSize = true };
+        _removeBtn.Click += (_, _) => RemoveSelectedMode();
+        left.Controls.Add(_removeBtn);
 
         _modesList = new ListBox { Dock = DockStyle.Fill };
-        RefreshModesList();
         settingsLayout.Controls.Add(left, 0, 0);
         settingsLayout.SetRowSpan(left, 3);
         settingsLayout.Controls.Add(_modesList, 1, 0);
         settingsLayout.SetRowSpan(_modesList, 3);
-        settings.Controls.Add(settingsLayout);
-        root.Controls.Add(settings, 0, 1);
+        _settingsGroup.Controls.Add(settingsLayout);
+        root.Controls.Add(_settingsGroup, 0, 1);
 
         _log = new TextBox
         {
@@ -137,13 +144,78 @@ internal sealed class MainForm : Form
             ScrollBars = ScrollBars.Vertical,
             Font = new Font("Consolas", 9f)
         };
-        var logBox = new GroupBox { Text = "Durum", Dock = DockStyle.Fill };
-        logBox.Controls.Add(_log);
-        root.Controls.Add(logBox, 0, 2);
+        _logBox = new GroupBox { Dock = DockStyle.Fill };
+        _logBox.Controls.Add(_log);
+        root.Controls.Add(_logBox, 0, 2);
 
         Controls.Add(root);
-        Log($"Ayar dosyası: {UserConfigStore.JsonPath}");
-        Log("Sıra: 0 İlk kurulum → 1 Başlat → 2 Tray aç | 3 Tray kapat | 4 Durdur");
+        ApplyUiLanguage(logIntro: true);
+    }
+
+    private void LanguageChanged(object? sender, EventArgs e)
+    {
+        if (_suppressLanguageEvent || _language.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        var code = _language.SelectedIndex == 0 ? "tr" : "en";
+        if (code == Localization.CurrentLanguage)
+        {
+            return;
+        }
+
+        _config.Language = code;
+        Localization.Load(code);
+        UserConfigStore.Save(_config);
+        ApplyUiLanguage(logIntro: false);
+        LogT("log_language_changed", Localization.T(code == "tr" ? "lang_tr" : "lang_en"));
+    }
+
+    private void ApplyUiLanguage(bool logIntro)
+    {
+        Text = Localization.T("app_title");
+        for (var i = 0; i < _actionButtons.Length; i++)
+        {
+            _actionButtons[i].Text = Localization.T($"btn_{i}");
+        }
+
+        _settingsGroup.Text = Localization.T("group_settings");
+        _logBox.Text = Localization.T("group_status");
+        _labelLanguage.Text = Localization.T("label_language");
+        _labelVmCount.Text = Localization.T("label_vm_count");
+        _labelMode.Text = Localization.T("label_mode");
+        _labelAddRes.Text = Localization.T("label_add_res");
+        _addBtn.Text = Localization.T("btn_add_mode");
+        _removeBtn.Text = Localization.T("btn_remove_mode");
+
+        _suppressLanguageEvent = true;
+        var langIndex = Localization.CurrentLanguage == "en" ? 1 : 0;
+        _language.Items.Clear();
+        _language.Items.Add(Localization.T("lang_tr"));
+        _language.Items.Add(Localization.T("lang_en"));
+        _language.SelectedIndex = langIndex;
+        _suppressLanguageEvent = false;
+
+        var splitIndex = _config.SplitMode switch
+        {
+            "primary" => 2,
+            "dual" => 1,
+            _ => 0
+        };
+        _splitMode.Items.Clear();
+        _splitMode.Items.Add(Localization.T("mode_desktop"));
+        _splitMode.Items.Add(Localization.T("mode_dual"));
+        _splitMode.Items.Add(Localization.T("mode_primary"));
+        _splitMode.SelectedIndex = splitIndex;
+
+        RefreshModesList();
+
+        if (logIntro)
+        {
+            LogT("log_config_path", UserConfigStore.JsonPath);
+            LogT("log_flow");
+        }
     }
 
     private static Button BigButton(string text, Color back, EventHandler onClick)
@@ -176,6 +248,7 @@ internal sealed class MainForm : Form
     private void PullUiToConfig()
     {
         _config.MonitorCount = (int)_monitorCount.Value;
+        _config.Language = Localization.CurrentLanguage;
         _config.SplitMode = _splitMode.SelectedIndex switch
         {
             1 => "dual",
@@ -194,14 +267,14 @@ internal sealed class MainForm : Form
             RefreshRate = (int)_modeHz.Value
         });
         RefreshModesList();
-        Log($"Eklendi: {_modeW.Value}x{_modeH.Value} — «Ayarları kaydet» de.");
+        LogT("log_mode_added", _modeW.Value, _modeH.Value);
     }
 
     private void RemoveSelectedMode()
     {
         if (_modesList.SelectedIndex < 0 || _config.Modes.Count <= 1)
         {
-            Log("En az bir çözünürlük kalmalı.");
+            LogT("log_keep_one_mode");
             return;
         }
 
@@ -223,9 +296,9 @@ internal sealed class MainForm : Form
         }
 
         UserConfigStore.Save(_config);
-        Log($"Kaydedildi: {UserConfigStore.JsonPath}");
-        Log($"Sürücü dosyası: {UserConfigStore.ModesCfgPath}");
-        Log("Çözünürlüklerin Windows'ta görünmesi için sürücüyü yeniden başlat (Durdur → Başlat) veya İlk kurulum.");
+        LogT("log_saved", UserConfigStore.JsonPath);
+        LogT("log_modes_cfg", UserConfigStore.ModesCfgPath);
+        LogT("log_restart_for_modes");
         RefreshModesList();
     }
 
@@ -249,56 +322,53 @@ internal sealed class MainForm : Form
 
     private async Task FirstTimeSetupAsync()
     {
-        Log("İlk kurulum başlıyor (yönetici gerekir)...");
+        LogT("log_setup_start");
         PullUiToConfig();
         UserConfigStore.Save(_config);
 
         var root = FindRepoRoot();
         if (root is null)
         {
-            Log("HATA: Proje kökü bulunamadı (VDisplay.sln yanında Start-VDisplay.cmd çalıştır).");
+            LogT("log_no_repo");
             return;
         }
 
-        // 1) Test signing
         var signCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "enable-test-signing.ps1"));
         if (signCode != 0)
         {
-            Log("HATA: Test imzalama açılamadı. Yönetici onayı verildi mi?");
+            LogT("log_testsign_fail");
             return;
         }
 
-        Log("ÖNEMLİ: Test Mode yeni açıldıysa şimdi bilgisayarı YENİDEN BAŞLAT.");
-        Log("Yeniden başladıktan sonra Yardımcı → «0. İlk kurulum» tekrar.");
+        LogT("log_reboot");
+        LogT("log_reboot_again");
 
-        // Hazır paket (dist/driver) — son kullanıcıda derleme YOK
         var packageDir = Path.Combine(root, "dist", "driver");
         var inf = Path.Combine(packageDir, "VDisplayDriver.inf");
         var dll = Path.Combine(packageDir, "VDisplayDriver.dll");
         if (!File.Exists(inf) || !File.Exists(dll))
         {
-            Log("HATA: Hazır sürücü paketi yok.");
-            Log($"Beklenen: {packageDir}");
-            Log("Son kullanıcı: GitHub sürümünden / repo’dan dist\\driver klasörünü indir.");
-            Log("Geliştirici: .\\scripts\\publish-driver-package.ps1");
+            LogT("log_no_package");
+            LogT("log_expected", packageDir);
+            LogT("log_end_user_dist");
+            LogT("log_dev_publish");
             return;
         }
 
-        Log($"Sürücü paketi: {packageDir}");
+        LogT("log_package", packageDir);
 
-        // Kurulum (pnputil + test sertifikası)
         var installCode = await RunElevatedScriptAsync(Path.Combine(root, "scripts", "install-driver.ps1"));
         if (installCode != 0)
         {
-            Log("HATA: Sürücü kurulumu başarısız (kod=" + installCode + ").");
-            Log("Tipik nedenler:");
-            Log("  • Yeniden başlatılmadı (testsigning henüz aktif değil)");
-            Log("  • Yönetici onayı verilmedi");
-            Log("  • Yönetici PowerShell: .\\scripts\\install-driver.ps1");
+            LogT("log_install_fail", installCode);
+            LogT("log_install_hints");
+            LogT("log_hint_reboot");
+            LogT("log_hint_admin");
+            LogT("log_hint_manual");
             return;
         }
 
-        Log("Sürücü kuruldu. Şimdi «1. Başlat» → sonra «2. Tray aç».");
+        LogT("log_install_ok");
     }
 
     private async Task StartAllAsync()
@@ -309,23 +379,23 @@ internal sealed class MainForm : Form
         var root = FindRepoRoot();
         if (root is null)
         {
-            Log("HATA: Proje kökü bulunamadı (VDisplay.sln yanında çalıştır).");
+            LogT("log_no_repo");
             return;
         }
 
         EnsureService(root);
-        Log("Servisin ayağa kalkması bekleniyor...");
+        LogT("log_waiting_service");
         if (!await WaitForServiceAsync(root, TimeSpan.FromSeconds(90)))
         {
-            Log("HATA: Servise bağlanılamadı. İlk derleme uzun sürebilir; tekrar «1. Başlat» dene.");
-            Log("Veya manuel: dotnet run --project src\\VDisplay.Service");
+            LogT("log_service_fail");
+            LogT("log_service_manual");
             return;
         }
 
         var code = await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["driver", "start"]);
         if (code != 0)
         {
-            Log("Sürücü start başarısız — önce «İlk kurulum» (sürücü + reboot) tamamlanmalı.");
+            LogT("log_driver_start_fail");
             return;
         }
 
@@ -334,14 +404,14 @@ internal sealed class MainForm : Form
         if (_config.SplitMode == "desktop")
         {
             await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["vm-split", "stop"]);
-            Log("Masaüstü modu: VM'ler sadece ek ekran (capture yok).");
-            Log("«Ekran ayarları» → Genişlet → yeni monitörleri yan yana koy.");
+            LogT("log_desktop_mode");
+            LogT("log_extend_hint");
             return;
         }
 
         await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["vm-split", "setup", _config.SplitMode]);
-        Log("Split modu aktif. «Ekran ayarları» → VM'leri yan yana yerleştir.");
-        Log("İstersen «Tray önizleme» ile canlı bak (sadece sanal monitörler).");
+        LogT("log_split_mode");
+        LogT("log_tray_hint");
     }
 
     private void StopAll()
@@ -368,7 +438,7 @@ internal sealed class MainForm : Form
             try { p.Kill(entireProcessTree: true); } catch { /* ignore */ }
         }
 
-        Log("Durduruldu (servis + sürücü komutları + tray).");
+        LogT("log_stopped");
     }
 
     private void StopTray()
@@ -387,7 +457,7 @@ internal sealed class MainForm : Form
             }
         }
 
-        Log(killed > 0 ? $"3. Tray kapatıldı ({killed} süreç)." : "Tray zaten kapalı.");
+        LogT(killed > 0 ? "log_tray_closed" : "log_tray_already_closed", killed);
     }
 
     private void StartTray()
@@ -400,12 +470,12 @@ internal sealed class MainForm : Form
 
         if (Process.GetProcessesByName("VDisplay.Tray").Length > 0)
         {
-            Log("Tray zaten açık. Kapatmak için «3. Tray kapat».");
+            LogT("log_tray_already_open");
             return;
         }
 
-        Log("2. Tray: yalnızca VDisplay sanal monitörlerini gösterir.");
-        Log("Önce «1. Başlat» başarılı olmalı; Ekran ayarlarında yeni monitörler görünmeli.");
+        LogT("log_tray_info");
+        LogT("log_tray_need_start");
 
         Process.Start(new ProcessStartInfo
         {
@@ -415,14 +485,14 @@ internal sealed class MainForm : Form
             UseShellExecute = false,
             CreateNoWindow = true
         });
-        Log("Tray başlatıldı. 'VM yok' görürsen sürücü/start tamamlanmamış demektir.");
+        LogT("log_tray_started");
     }
 
     private void EnsureService(string root)
     {
         if (Process.GetProcessesByName("VDisplay.Service").Length > 0)
         {
-            Log("Servis zaten çalışıyor.");
+            LogT("log_service_running");
             return;
         }
 
@@ -434,7 +504,7 @@ internal sealed class MainForm : Form
             UseShellExecute = false,
             CreateNoWindow = true
         });
-        Log("Servis başlatıldı (arka plan).");
+        LogT("log_service_started");
     }
 
     private async Task<bool> WaitForServiceAsync(string root, TimeSpan timeout)
@@ -445,7 +515,7 @@ internal sealed class MainForm : Form
             var code = await RunDotnetAsync(root, "src\\VDisplay.Cli\\VDisplay.Cli.csproj", ["ping"]);
             if (code == 0)
             {
-                Log("Servis hazır.");
+                LogT("log_service_ready");
                 return true;
             }
 
@@ -502,7 +572,7 @@ internal sealed class MainForm : Form
     {
         if (!File.Exists(scriptPath))
         {
-            Log($"Script yok: {scriptPath}");
+            LogT("log_script_missing", scriptPath);
             return 1;
         }
 
@@ -523,12 +593,12 @@ internal sealed class MainForm : Form
             }
 
             await p.WaitForExitAsync();
-            Log($"Script bitti ({Path.GetFileName(scriptPath)}), kod={p.ExitCode}");
+            LogT("log_script_done", Path.GetFileName(scriptPath), p.ExitCode);
             return p.ExitCode;
         }
         catch (Exception ex)
         {
-            Log($"Script hatası / iptal: {ex.Message}");
+            LogT("log_script_error", ex.Message);
             return 1;
         }
     }
@@ -559,6 +629,8 @@ internal sealed class MainForm : Form
 
         return null;
     }
+
+    private void LogT(string key, params object[] args) => Log(Localization.T(key, args));
 
     private void Log(string message)
     {

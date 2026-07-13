@@ -16,4 +16,10 @@
     <ProjectReference Include="..\VDisplay.Core\VDisplay.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="lang\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

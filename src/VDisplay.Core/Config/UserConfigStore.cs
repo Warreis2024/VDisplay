@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -23,6 +24,9 @@ public sealed class VDisplayUserConfig
     /// desktop = sadece ek masaüstü (capture yok)
     /// </summary>
     public string SplitMode { get; set; } = "dual";
+
+    /// <summary>UI dili: tr | en</summary>
+    public string Language { get; set; } = "tr";
 
     /// <summary>Tercih edilen mod indeksi (Modes listesinde).</summary>
     public int PreferredModeIndex { get; set; }
@@ -113,6 +117,9 @@ public static class UserConfigStore
     private static void Normalize(VDisplayUserConfig config)
     {
         config.MonitorCount = Math.Clamp(config.MonitorCount, 1, 10);
+        config.Language = string.IsNullOrWhiteSpace(config.Language)
+            ? (CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("tr", StringComparison.OrdinalIgnoreCase) ? "tr" : "en")
+            : (config.Language.Trim().ToLowerInvariant() is "tr" or "tr-tr" ? "tr" : "en");
         config.SplitMode = config.SplitMode?.Trim().ToLowerInvariant() switch
         {
             "primary" or "single" => "primary",
