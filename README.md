@@ -89,12 +89,51 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 
 ## Quick start (end users)
 
-1. Double-click **`Start-VDisplay.cmd`**
-2. **First-time setup** (admin once) → if Test Mode appears, reboot → run setup again
-3. Pick a mode → **1. Start**
-4. **Display settings** → place VMs beside your physical monitors
+1. **BIOS/UEFI: set Secure Boot = Disabled** (one-time; required for the current test-signed build — see below)
+2. Double-click **`Start-VDisplay.cmd`** (preferably Run as administrator)
+3. **0. First-time setup** → approve UAC → if asked, reboot until **Test Mode** shows on the desktop → run setup again
+4. Pick a mode → **1. Start**
+5. **Display settings** → place VMs beside your physical monitors
 
 Details: [docs/END_USER.md](docs/END_USER.md)
+
+---
+
+## Why Secure Boot / BIOS? (important)
+
+VDisplay is not a normal app installer. It installs an **Indirect Display Driver (IDD)** — a kernel-level virtual monitor driver that Windows treats like real display hardware.
+
+| What you install | Windows policy |
+|------------------|----------------|
+| Normal app (`.exe`) | No BIOS involved |
+| **IDD / kernel driver** | Must be **signed**. Unsigned or **test-signed** drivers are blocked while **Secure Boot** is on |
+
+### The problem (current open-source / lab builds)
+
+- The published driver in `dist/driver` is **test-signed** (no paid EV certificate yet).
+- With **Secure Boot ON**, `bcdedit` / install fails with errors like:  
+  *“The value is protected by Secure Boot policy and cannot be modified or deleted”*  
+  (TR: *“Güvenli önyükleme ilkesi tarafından korunuyor…”*).
+- Admin rights alone are **not enough**. Secure Boot is a firmware policy above Windows.
+
+### The required workaround (lab / personal use)
+
+1. Reboot → enter **BIOS/UEFI** (often Del / F2 / F10)
+2. Set **Secure Boot = Disabled**
+3. Save → boot Windows
+4. Run Helper **0. First-time setup** → reboot if needed until desktop shows **Test Mode**
+5. Run **0. First-time setup** again → **1. Start**
+
+This is a **Windows security requirement**, not an arbitrary VDisplay setting.
+
+### Long-term product path (no BIOS for end users)
+
+| Build type | Who | Secure Boot | BIOS |
+|------------|-----|-------------|------|
+| **Test-signed** (today) | Developers / lab PCs | Must be **off** | One-time disable |
+| **EV Code Signing** (future commercial) | Normal end users | Can stay **on** | Not required |
+
+Paid **EV code signing** for drivers is how shipping products avoid asking users to open BIOS. Until then, personal/lab installs need Secure Boot off + Test Mode.
 
 ---
 

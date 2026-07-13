@@ -89,12 +89,50 @@ Preview uygulaması ile tüm sanal monitörleri tek ekrandan yönetmek, sistemi 
 
 ## Hızlı başlangıç (son kullanıcı)
 
-1. **`Start-VDisplay.cmd`** dosyasına çift tıkla
-2. **İlk kurulum** (bir kez yönetici) → Test Mode çıktıysa yeniden başlat → kurulumu tekrarla
-3. Mod seç → **1. Başlat**
-4. **Ekran ayarları** → VM’leri fiziksel monitörlerin yanına koy
+1. **BIOS/UEFI: Secure Boot = Disabled** (bir kez; mevcut test imzalı sürüm için zorunlu — aşağıya bak)
+2. **`Start-VDisplay.cmd`** → tercihen **Yönetici olarak çalıştır**
+3. **0. İlk kurulum** → UAC’ye Evet → gerekirse yeniden başlat, masaüstünde **Test Mode** gör → kurulumu tekrarla
+4. Mod seç → **1. Başlat**
+5. **Ekran ayarları** → VM’leri fiziksel monitörlerin yanına koy
 
 Detay: [docs/END_USER.tr.md](docs/END_USER.tr.md)
+
+---
+
+## Neden Secure Boot / BIOS? (önemli)
+
+VDisplay sıradan bir program kurulumu değildir. **Indirect Display Driver (IDD)** yükler — Windows’un gerçek ekran donanımı gibi gördüğü **çekirdek seviyesi** sanal monitör sürücüsü.
+
+| Ne kuruluyor? | Windows politikası |
+|---------------|-------------------|
+| Normal uygulama (`.exe`) | BIOS’a gerek yok |
+| **IDD / çekirdek sürücü** | **İmzalı** olmalı. İmzasız veya **test imzalı** sürücü, **Secure Boot açıkken** engellenir |
+
+### Sorun (şu anki açık kaynak / laboratuvar sürümü)
+
+- `dist/driver` içindeki sürücü **test imzalıdır** (henüz ücretli EV sertifikası yok).
+- **Secure Boot AÇIK** iken `bcdedit` / kurulum şu hatayla düşer:  
+  *“Değer Güvenli önyükleme ilkesi tarafından korunuyor; değiştirilemez veya silinemez.”*
+- Sadece **yönetici yetkisi yetmez**. Secure Boot, Windows’un üstünde firmware politikasıdır.
+
+### Zorunlu çözüm (laboratuvar / kişisel kullanım)
+
+1. Yeniden başlat → **BIOS/UEFI** (genelde Del / F2 / F10)
+2. **Secure Boot = Disabled**
+3. Kaydet → Windows’a gir
+4. Yardımcı **0. İlk kurulum** → gerekirse reboot → masaüstünde **Test Mode**
+5. **0. İlk kurulum** tekrar → **1. Başlat**
+
+Bu VDisplay’in keyfi bir tercihi değil; **Windows güvenlik kuralı**.
+
+### Uzun vadeli ürün yolu (son kullanıcıda BIOS yok)
+
+| Sürüm tipi | Kim | Secure Boot | BIOS |
+|------------|-----|-------------|------|
+| **Test imzalı** (bugün) | Geliştirici / lab PC | **Kapalı** olmalı | Bir kez kapat |
+| **EV Code Signing** (ileride ticari) | Normal son kullanıcı | **Açık** kalabilir | Gerekmez |
+
+Sürücüler için ücretli **EV code signing**, ürünlerin kullanıcılara BIOS açtırmadan dağıtılmasını sağlar. O olmadan kişisel/lab kurulumunda Secure Boot kapalı + Test Mode şarttır.
 
 ---
 
