@@ -3,18 +3,36 @@
 #   2 = BCD yazildi veya henuz aktif degil — YENIDEN BASLAT gerekli
 #   1 = hata
 
-$ErrorActionPreference = "Stop"
-$BcdEdit = Join-Path $env:SystemRoot "System32\bcdedit.exe"
+$ErrorActionPreference = "Continue"
+
+function Get-BcdEditPath {
+    $windir = $env:SystemRoot
+    $sysnative = Join-Path $windir "Sysnative\bcdedit.exe"
+    $system32 = Join-Path $windir "System32\bcdedit.exe"
+    # 32-bit PowerShell'te System32 -> SysWOW64 yonlenir; Sysnative gercek 64-bit
+    if (Test-Path $sysnative) { return $sysnative }
+    return $system32
+}
 
 function Test-IsAdmin {
     return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Invoke-BcdEdit {
+    param([string[]]$Args)
+    $exe = Get-BcdEditPath
+    $out = & $exe @Args 2>&1
+    return @{
+        Exe = $exe
+        Code = [int]$LASTEXITCODE
+        Output = (($out | ForEach-Object { "$_" }) -join "`n").Trim()
+    }
+}
+
 function Test-BcdTestSigning {
-    # PowerShell'de {current} scriptblock olmasin diye tek tirnak
-    $output = & $BcdEdit /enum '{current}' 2>&1 | Out-String
-    return ($output -match "testsigning\s+Yes")
+    $r = Invoke-BcdEdit -Args @('/enum')
+    return ($r.Output -match "testsigning\s+Yes")
 }
 
 function Test-KernelTestSigning {
@@ -49,11 +67,7 @@ public static class CiQuery {
 }
 
 function Test-SecureBootOn {
-    try {
-        return [bool](Confirm-SecureBootUEFI)
-    } catch {
-        return $false
-    }
+    try { return [bool](Confirm-SecureBootUEFI) } catch { return $false }
 }
 
 $logDir = Join-Path $env:ProgramData "VDisplay"
@@ -68,18 +82,15 @@ function Write-Log([string]$msg) {
 
 "" | Set-Content -Path $logFile -Encoding UTF8
 
+Write-Log ("Islem: {0}-bit | OS: {1}-bit" -f $(if ([Environment]::Is64BitProcess) { "64" } else { "32" }), $(if ([Environment]::Is64BitOperatingSystem) { "64" } else { "32" }))
+Write-Log ("bcdedit: {0}" -f (Get-BcdEditPath))
+Write-Log ("Kullanici: {0}" -f [Security.Principal.WindowsIdentity]::GetCurrent().Name)
+
 if (-not (Test-IsAdmin)) {
-    Write-Log "HATA: Script YONETICI degil. UAC onayina Evet deyin veya Yardimci'yi yonetici olarak acin."
+    Write-Log "HATA: Script YONETICI degil. UAC'de Evet'e basin."
     exit 1
 }
-
-if (-not (Test-Path $BcdEdit)) {
-    Write-Log "HATA: bcdedit bulunamadi: $BcdEdit"
-    exit 1
-}
-
-Write-Log ("Kullanici: {0}" -f ([Security.Principal.WindowsIdentity]::GetCurrent().Name))
-Write-Log ("Yonetici: Evet")
+Write-Log "Yonetici: Evet"
 
 $kernelOn = Test-KernelTestSigning
 $bcdOn = Test-BcdTestSigning
@@ -93,26 +104,31 @@ if ($kernelOn) {
 
 if (-not $bcdOn) {
     Write-Log "Test imzalama BCD'ye yaziliyor..."
-    $global:LASTEXITCODE = 0
-    # '{current}' zorunlu — PowerShell {current}'i scriptblock sanmasin
-    $bcdOut = & $BcdEdit /set '{current}' testsigning on 2>&1
-    $bcdCode = $LASTEXITCODE
-    if ($null -ne $bcdOut) {
-        ($bcdOut | Out-String).Trim().Split("`n") | ForEach-Object {
-            if ($_.Trim().Length -gt 0) { Write-Log ("  bcdedit: " + $_.Trim()) }
-        }
+    # Argument dizisi kullan — PowerShell {current} scriptblock sorununu onler
+    $r = Invoke-BcdEdit -Args @('/set', '{current}', 'testsigning', 'on')
+    if ($r.Output) {
+        $r.Output.Split("`n") | ForEach-Object { if ($_.Trim()) { Write-Log ("  " + $_.Trim()) } }
     }
 
-    if ($bcdCode -ne 0) {
-        Write-Log ("HATA: bcdedit basarisiz (kod={0})." -f $bcdCode)
-        Write-Log "Denenecekler:"
-        Write-Log "  1) Baslat -> PowerShell -> Sag tik -> Yonetici olarak calistir"
-        Write-Log "  2) Komut: bcdedit /set `{current`} testsigning on"
-        Write-Log "  3) BIOS/UEFI: Secure Boot KAPAT (cok sik neden)"
-        Write-Log "  4) Sonra bilgisayari yeniden baslat"
-        if (Test-SecureBootOn) {
-            Write-Log "NOT: Secure Boot ACIK gorunuyor — testsigning icin genelde kapatilmali."
+    if ($r.Code -ne 0) {
+        # yedek: identifier olmadan
+        Write-Log "Yedek deneme: bcdedit /set testsigning on"
+        $r2 = Invoke-BcdEdit -Args @('/set', 'testsigning', 'on')
+        if ($r2.Output) {
+            $r2.Output.Split("`n") | ForEach-Object { if ($_.Trim()) { Write-Log ("  " + $_.Trim()) } }
         }
+        $r = $r2
+    }
+
+    if ($r.Code -ne 0) {
+        Write-Log ("HATA: bcdedit basarisiz (kod={0})." -f $r.Code)
+        Write-Log "Elle dene (Yonetici PowerShell):"
+        Write-Log "  bcdedit /set {current} testsigning on"
+        Write-Log "Sonra bilgisayari yeniden baslat."
+        if (Test-SecureBootOn) {
+            Write-Log "NOT: Secure Boot ACIK — BIOS'ta Secure Boot'u kapatman gerekebilir."
+        }
+        Write-Log "Erisim engellendi ise: Yardimci'yi kapat, Start-VDisplay.cmd'ye sag tik -> Yonetici olarak calistir."
         exit 1
     }
 
@@ -123,6 +139,6 @@ Write-Log "Test imzalama henuz cekirdekte AKTIF DEGIL."
 Write-Log "Bilgisayari SIMDI YENIDEN BASLATIN (masaüstünde Test Mode yazisi cikmali)."
 Write-Log "Sonra Yardimci -> 0. Ilk kurulum tekrar."
 if (Test-SecureBootOn) {
-    Write-Log "UYARI: Secure Boot ACIK. Reboot sonrasi Test Mode gelmezse BIOS'ta Secure Boot'u kapat."
+    Write-Log "UYARI: Secure Boot ACIK. Test Mode gelmezse BIOS'ta Secure Boot kapat."
 }
 exit 2

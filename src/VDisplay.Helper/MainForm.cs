@@ -739,7 +739,7 @@ internal sealed class MainForm : Form
 
         var psi = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
+            FileName = GetPowerShellPath(),
             Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
             UseShellExecute = true,
             Verb = elevate ? "runas" : null
@@ -762,6 +762,23 @@ internal sealed class MainForm : Form
             LogT("log_script_error", ex.Message);
             return 1;
         }
+    }
+
+    private static string GetPowerShellPath()
+    {
+        var windir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        // 32-bit süreçte System32 WOW64'e gider; Sysnative gerçek 64-bit System32
+        if (Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess)
+        {
+            var sysnative = Path.Combine(windir, "Sysnative", "WindowsPowerShell", "v1.0", "powershell.exe");
+            if (File.Exists(sysnative))
+            {
+                return sysnative;
+            }
+        }
+
+        var system32 = Path.Combine(windir, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+        return File.Exists(system32) ? system32 : "powershell.exe";
     }
 
     private static string? FindRepoRoot()

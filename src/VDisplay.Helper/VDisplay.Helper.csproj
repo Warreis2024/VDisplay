@@ -9,6 +9,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <RootNamespace>VDisplay.Helper</RootNamespace>
     <AssemblyName>VDisplay.Helper</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
     <ApplicationIcon></ApplicationIcon>
   </PropertyGroup>
 
