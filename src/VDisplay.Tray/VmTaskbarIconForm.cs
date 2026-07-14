@@ -25,11 +25,12 @@ internal sealed class VmTaskbarIconForm : Form
         _sharedIndex = sharedIndex;
         _source = new VmFrameSource(monitor, sharedIndex, useSharedMemory: true);
 
-        Text = $"VM {vmNumber}";
-        ShowInTaskbar = true;
+        Text = monitor.VmLabel(vmNumber);
+        // Keep thumbnails off the Windows taskbar (only tray + floating previews).
+        ShowInTaskbar = false;
         FormBorderStyle = FormBorderStyle.FixedToolWindow;
         MaximizeBox = false;
-        MinimizeBox = true;
+        MinimizeBox = false;
         StartPosition = FormStartPosition.Manual;
         ClientSize = new Size(IconWidth, IconHeight);
         BackColor = Color.FromArgb(32, 32, 32);
@@ -45,12 +46,34 @@ internal sealed class VmTaskbarIconForm : Form
         _thumb.Click += (_, _) => OpenPreview();
         Click += (_, _) => OpenPreview();
 
-        _timer = new System.Windows.Forms.Timer { Interval = 400 };
+        // Mini pencereler yavaş (~0.5 FPS) — GPU yükünü düşür; büyütülünce preview hızlı
+        _timer = new System.Windows.Forms.Timer { Interval = 2000 };
         _timer.Tick += (_, _) => RefreshThumbnail();
         Shown += (_, _) =>
         {
-            _timer.Start();
-            RefreshThumbnail();
+            // Index ile hafif kaydırma: 10 mini aynı anda DXGI/GDI vurmasın
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(50 * Math.Max(0, sharedIndex));
+                    if (!IsDisposed)
+                    {
+                        BeginInvoke(() =>
+                        {
+                            if (!IsDisposed)
+                            {
+                                _timer.Start();
+                                RefreshThumbnail();
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // ignore
+                }
+            });
         };
         FormClosed += (_, _) =>
         {
@@ -80,8 +103,18 @@ internal sealed class VmTaskbarIconForm : Form
             return;
         }
 
+        // Bu VM büyütülüyken mini yenilemeyi durdur
+        _timer.Stop();
         _preview = new VmPreviewForm(_monitor, _sharedIndex, Text);
-        _preview.FormClosed += (_, _) => _preview = null;
+        _preview.FormClosed += (_, _) =>
+        {
+            _preview = null;
+            if (!IsDisposed)
+            {
+                _timer.Start();
+                RefreshThumbnail();
+            }
+        };
         _preview.Show();
     }
 

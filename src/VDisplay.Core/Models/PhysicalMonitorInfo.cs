@@ -9,4 +9,6 @@ public sealed class PhysicalMonitorInfo
     public int Width { get; set; }
     public int Height { get; set; }
     public bool IsPrimary { get; set; }
+
+    public string VmLabel(int vmNumber) => $"VM {vmNumber}";
 }

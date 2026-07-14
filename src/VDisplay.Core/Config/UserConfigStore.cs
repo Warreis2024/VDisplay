@@ -98,7 +98,7 @@ public static class UserConfigStore
 
     /// <summary>
     /// Sürücünün okuduğu düz metin dosya.
-    /// Biçim: VDISPLAY_MODES 1 / count preferred / w h hz ...
+    /// v2: VDISPLAY_MODES 2 / vmCount modeCount preferred / w h hz ...
     /// </summary>
     public static void WriteModesCfg(VDisplayUserConfig config)
     {
@@ -106,8 +106,8 @@ public static class UserConfigStore
         Directory.CreateDirectory(ProgramDataDir);
 
         using var writer = new StreamWriter(ModesCfgPath, false);
-        writer.WriteLine("VDISPLAY_MODES 1");
-        writer.WriteLine($"{config.Modes.Count} {config.PreferredModeIndex}");
+        writer.WriteLine("VDISPLAY_MODES 2");
+        writer.WriteLine($"{config.MonitorCount} {config.Modes.Count} {config.PreferredModeIndex}");
         foreach (var mode in config.Modes)
         {
             writer.WriteLine($"{mode.Width} {mode.Height} {mode.RefreshRate}");

@@ -131,11 +131,13 @@ static const struct IndirectSampleMonitor s_SampleMonitors[] =
 static VDisplayUserMode g_UserModes[VDISPLAY_MAX_USER_MODES] = {};
 static DWORD g_UserModeCount = 0;
 static DWORD g_UserPreferredIdx = 0;
+static DWORD g_VmCount = 2; // default; overridden by modes.cfg
 
 static void LoadUserModesFromCfg()
 {
     g_UserModeCount = 0;
     g_UserPreferredIdx = 0;
+    g_VmCount = 2;
 
     FILE* file = nullptr;
     if (_wfopen_s(&file, VDISPLAY_MODES_CFG_PATH, L"r") != 0 || file == nullptr)
@@ -147,7 +149,7 @@ static void LoadUserModesFromCfg()
     int version = 0;
     if (fscanf_s(file, "%63s %d", header, (unsigned)_countof(header), &version) != 2
         || strcmp(header, "VDISPLAY_MODES") != 0
-        || version != 1)
+        || (version != 1 && version != 2))
     {
         fclose(file);
         return;
@@ -155,11 +157,31 @@ static void LoadUserModesFromCfg()
 
     int count = 0;
     int preferred = 0;
-    if (fscanf_s(file, "%d %d", &count, &preferred) != 2 || count <= 0)
+    int vmCount = 2;
+
+    if (version == 2)
+    {
+        if (fscanf_s(file, "%d %d %d", &vmCount, &count, &preferred) != 3 || count <= 0)
+        {
+            fclose(file);
+            return;
+        }
+    }
+    else if (fscanf_s(file, "%d %d", &count, &preferred) != 2 || count <= 0)
     {
         fclose(file);
         return;
     }
+
+    if (vmCount < 1)
+    {
+        vmCount = 1;
+    }
+    if (vmCount > (int)VDISPLAY_MAX_VM)
+    {
+        vmCount = (int)VDISPLAY_MAX_VM;
+    }
+    g_VmCount = (DWORD)vmCount;
 
     if (count > VDISPLAY_MAX_USER_MODES)
     {
@@ -209,6 +231,20 @@ static bool HasUserModes()
 {
     LoadUserModesFromCfg();
     return g_UserModeCount > 0;
+}
+
+static DWORD GetConfiguredVmCount()
+{
+    LoadUserModesFromCfg();
+    if (g_VmCount < 1)
+    {
+        return 1;
+    }
+    if (g_VmCount > VDISPLAY_MAX_VM)
+    {
+        return VDISPLAY_MAX_VM;
+    }
+    return g_VmCount;
 }
 
 #pragma endregion
@@ -714,6 +750,7 @@ void IndirectDeviceContext::InitAdapter()
     AdapterCaps.Size = sizeof(AdapterCaps);
 
     // Declare basic feature support for the adapter (required)
+    // Max = 10 (hardware cap); actual plug-in count comes from modes.cfg (VM count).
     AdapterCaps.MaxMonitorsSupported = VDISPLAY_MONITOR_COUNT;
     AdapterCaps.EndPointDiagnostics.Size = sizeof(AdapterCaps.EndPointDiagnostics);
     AdapterCaps.EndPointDiagnostics.GammaSupport = IDDCX_FEATURE_IMPLEMENTATION_NONE;
@@ -864,7 +901,8 @@ NTSTATUS VDisplayAdapterInitFinished(IDDCX_ADAPTER AdapterObject, const IDARG_IN
     auto* pDeviceContextWrapper = WdfObjectGet_IndirectDeviceContextWrapper(AdapterObject);
     if (NT_SUCCESS(pInArgs->AdapterInitStatus))
     {
-        for (DWORD i = 0; i < VDISPLAY_MONITOR_COUNT; i++)
+        const DWORD vmCount = GetConfiguredVmCount();
+        for (DWORD i = 0; i < vmCount; i++)
         {
             pDeviceContextWrapper->pContext->FinishInit(i);
         }

@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using VDisplay.Core.Models;
 
@@ -8,10 +7,8 @@ namespace VDisplay.Tray;
 [SupportedOSPlatform("windows")]
 internal sealed class VmPreviewForm : Form
 {
-    private const int TargetFrameMs = 8;
-    private const int HotkeyReturnPrimary = 1;
-    private const int WmHotkey = 0x0312;
-    private const uint VkF3 = 0x72;
+    // Büyük önizleme: ~60 FPS
+    private const int TargetFrameMs = 16;
 
     private readonly PhysicalMonitorInfo _monitor;
     private readonly VmFrameSource _source;
@@ -22,7 +19,6 @@ internal sealed class VmPreviewForm : Form
     private int _uiBusy;
     private bool _controlEnabled = true;
     private bool _injecting;
-    private bool _hotkeyRegistered;
     private MouseButtons _pressedButtons;
 
     public VmPreviewForm(PhysicalMonitorInfo monitor, int sharedIndex, string title)
@@ -33,7 +29,7 @@ internal sealed class VmPreviewForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(960, 600);
         MinimumSize = new Size(480, 320);
-        ShowInTaskbar = true;
+        ShowInTaskbar = false;
         KeyPreview = true;
         DoubleBuffered = true;
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
@@ -77,18 +73,22 @@ internal sealed class VmPreviewForm : Form
 
         Shown += (_, _) =>
         {
-            RegisterReturnHotkey();
+            PreviewSession.SetActive(this);
             _picture.Focus();
             StartRefreshLoop();
         };
         FormClosed += (_, _) =>
         {
-            UnregisterReturnHotkey();
+            PreviewSession.SetActive(null);
             _cts.Cancel();
             _source.Dispose();
             _picture.Image?.Dispose();
         };
     }
+
+    public void ToggleControlPublic() => ToggleControl();
+
+    public void ReturnToPrimaryPublic() => ReturnToPrimary();
 
     private static string HintText(bool controlOn) => controlOn
         ? "Kontrol AÇIK — tıkla: VM'ye git | F3: primary'ye dön | F2: aç/kapa | Esc: kapat"
@@ -148,26 +148,37 @@ internal sealed class VmPreviewForm : Form
         KeyUp += OnPreviewKeyUp;
     }
 
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        // Odağı kaybetmeden önce güvenilir yakalama
+        if (keyData == Keys.F3)
+        {
+            ReturnToPrimary();
+            return true;
+        }
+
+        if (keyData == Keys.F2)
+        {
+            ToggleControl();
+            return true;
+        }
+
+        if (keyData == Keys.Escape)
+        {
+            Close();
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Escape)
+        if (e.KeyCode is Keys.Escape or Keys.F2 or Keys.F3)
         {
+            // ProcessCmdKey / global hotkey zaten işler — VM'ye enjekte etme
             e.Handled = true;
-            Close();
-            return;
-        }
-
-        if (e.KeyCode == Keys.F2)
-        {
-            e.Handled = true;
-            ToggleControl();
-            return;
-        }
-
-        if (e.KeyCode == Keys.F3)
-        {
-            e.Handled = true;
-            ReturnToPrimary();
+            e.SuppressKeyPress = true;
             return;
         }
 
@@ -206,20 +217,23 @@ internal sealed class VmPreviewForm : Form
     {
         _pressedButtons = MouseButtons.None;
         _picture.Capture = false;
+        _injecting = false;
 
-        var primary = Screen.PrimaryScreen ?? Screen.FromControl(this);
-        var centerX = primary.Bounds.Left + (primary.Bounds.Width / 2);
-        var centerY = primary.Bounds.Top + (primary.Bounds.Height / 2);
-        InputInjector.SetCursorScreenPos(centerX, centerY);
+        PreviewSession.MoveCursorToPrimary();
 
         if (WindowState == FormWindowState.Minimized)
         {
             WindowState = FormWindowState.Normal;
         }
 
+        // Oyuna/başka pencereye giden odağı geri al + imleç primary'de kalsın
+        PreviewSession.ForceForeground(Handle);
         BringToFront();
         Activate();
         _picture.Focus();
+
+        // Bir kez daha — odak/yarış sonrası imleç VM'ye geri kaçmasın
+        BeginInvoke(PreviewSession.MoveCursorToPrimary);
     }
 
     private void InjectMove(Point clientPt)
@@ -232,7 +246,6 @@ internal sealed class VmPreviewForm : Form
         _injecting = true;
         try
         {
-            // Cursor VM'de kalsın; primary'ye dönüş F3.
             InputInjector.MoveTo(screenX, screenY);
         }
         finally
@@ -299,38 +312,6 @@ internal sealed class VmPreviewForm : Form
         return true;
     }
 
-    private void RegisterReturnHotkey()
-    {
-        if (_hotkeyRegistered)
-        {
-            return;
-        }
-
-        _hotkeyRegistered = RegisterHotKey(Handle, HotkeyReturnPrimary, 0, VkF3);
-    }
-
-    private void UnregisterReturnHotkey()
-    {
-        if (!_hotkeyRegistered)
-        {
-            return;
-        }
-
-        UnregisterHotKey(Handle, HotkeyReturnPrimary);
-        _hotkeyRegistered = false;
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WmHotkey && m.WParam.ToInt32() == HotkeyReturnPrimary)
-        {
-            ReturnToPrimary();
-            return;
-        }
-
-        base.WndProc(ref m);
-    }
-
     private void StartRefreshLoop()
     {
         if (_refreshRunning)
@@ -348,7 +329,7 @@ internal sealed class VmPreviewForm : Form
                 {
                     if (Interlocked.CompareExchange(ref _uiBusy, 1, 0) != 0)
                     {
-                        await Task.Delay(1, _cts.Token);
+                        await Task.Delay(4, _cts.Token);
                         continue;
                     }
 
@@ -408,12 +389,4 @@ internal sealed class VmPreviewForm : Form
             _refreshRunning = false;
         });
     }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 }
