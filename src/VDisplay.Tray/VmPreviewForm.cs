@@ -19,6 +19,7 @@ internal sealed class VmPreviewForm : Form
     private int _uiBusy;
     private bool _controlEnabled = true;
     private bool _injecting;
+    private bool _pictureOwnsImage;
     private MouseButtons _pressedButtons;
 
     public VmPreviewForm(PhysicalMonitorInfo monitor, int sharedIndex, string title)
@@ -81,8 +82,13 @@ internal sealed class VmPreviewForm : Form
         {
             PreviewSession.SetActive(null);
             _cts.Cancel();
+            if (_pictureOwnsImage)
+            {
+                _picture.Image?.Dispose();
+            }
+
+            _picture.Image = null;
             _source.Dispose();
-            _picture.Image?.Dispose();
         };
     }
 
@@ -333,10 +339,16 @@ internal sealed class VmPreviewForm : Form
                         continue;
                     }
 
-                    var frame = _source.CaptureFrame(preview: true);
-                    if (frame is null || IsDisposed || _cts.IsCancellationRequested)
+                    if (!_source.TryCaptureFrame(preview: true, out var frame, out var owns)
+                        || frame is null
+                        || IsDisposed
+                        || _cts.IsCancellationRequested)
                     {
-                        frame?.Dispose();
+                        if (owns)
+                        {
+                            frame?.Dispose();
+                        }
+
                         Interlocked.Exchange(ref _uiBusy, 0);
                     }
                     else
@@ -347,13 +359,27 @@ internal sealed class VmPreviewForm : Form
                             {
                                 if (IsDisposed)
                                 {
-                                    frame.Dispose();
+                                    if (owns)
+                                    {
+                                        frame.Dispose();
+                                    }
+
                                     return;
                                 }
 
-                                var old = _picture.Image;
+                                if (ReferenceEquals(_picture.Image, frame))
+                                {
+                                    _picture.Invalidate();
+                                    return;
+                                }
+
+                                if (_pictureOwnsImage)
+                                {
+                                    _picture.Image?.Dispose();
+                                }
+
                                 _picture.Image = frame;
-                                old?.Dispose();
+                                _pictureOwnsImage = owns;
                             }
                             finally
                             {

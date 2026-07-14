@@ -15,6 +15,7 @@ internal sealed class VmTaskbarIconForm : Form
     private readonly VmFrameSource _source;
     private readonly PictureBox _thumb;
     private readonly System.Windows.Forms.Timer _timer;
+    private Bitmap? _miniBitmap;
     private VmPreviewForm? _preview;
 
     public string MonitorKey => $"{_monitor.Name}|{_monitor.X}|{_monitor.Y}|{_monitor.Width}|{_monitor.Height}";
@@ -79,8 +80,10 @@ internal sealed class VmTaskbarIconForm : Form
         {
             _timer.Stop();
             _timer.Dispose();
+            _thumb.Image = null;
+            _miniBitmap?.Dispose();
+            _miniBitmap = null;
             _source.Dispose();
-            _thumb.Image?.Dispose();
             _preview?.Close();
         };
     }
@@ -120,15 +123,39 @@ internal sealed class VmTaskbarIconForm : Form
 
     private void RefreshThumbnail()
     {
-        var frame = _source.CaptureThumbnail();
-        if (frame is null)
+        if (!_source.TryCaptureThumbnail(out var frame, out var owns) || frame is null)
         {
             return;
         }
 
-        var old = _thumb.Image;
-        _thumb.Image = new Bitmap(frame, new Size(IconWidth, IconHeight));
-        old?.Dispose();
-        frame.Dispose();
+        try
+        {
+            if (_miniBitmap is null)
+            {
+                _miniBitmap = new Bitmap(IconWidth, IconHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            }
+
+            using (var g = Graphics.FromImage(_miniBitmap))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                g.DrawImage(frame, 0, 0, IconWidth, IconHeight);
+            }
+
+            if (ReferenceEquals(_thumb.Image, _miniBitmap))
+            {
+                _thumb.Invalidate();
+            }
+            else
+            {
+                _thumb.Image = _miniBitmap;
+            }
+        }
+        finally
+        {
+            if (owns)
+            {
+                frame.Dispose();
+            }
+        }
     }
 }

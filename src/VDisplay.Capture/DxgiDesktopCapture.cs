@@ -24,24 +24,65 @@ public static class DxgiDesktopCapture
             return null;
         }
 
-        var key = $"{monitor.X},{monitor.Y},{monitor.Width},{monitor.Height}";
+        var key = SessionKey(monitor);
         lock (Gate)
         {
-            if (!Sessions.TryGetValue(key, out var session) || session.NeedsRecreate)
+            if (!TryGetSession(key, monitor, out var session) || session is null)
             {
-                session?.Dispose();
-                session = OutputSession.TryCreate(monitor);
-                if (session is null)
-                {
-                    Sessions.Remove(key);
-                    return null;
-                }
-
-                Sessions[key] = session;
+                return null;
             }
 
             return session.Capture(maxWidth, maxHeight);
         }
+    }
+
+    /// <summary>
+    /// Staging texture → BGRA bytes (ara Bitmap yok). buffer gerekirse yeniden boyutlanır.
+    /// </summary>
+    public static bool TryCaptureBgra(
+        PhysicalMonitorInfo monitor,
+        ref byte[]? buffer,
+        out int width,
+        out int height)
+    {
+        width = 0;
+        height = 0;
+        if (monitor.Width <= 0 || monitor.Height <= 0)
+        {
+            return false;
+        }
+
+        var key = SessionKey(monitor);
+        lock (Gate)
+        {
+            if (!TryGetSession(key, monitor, out var session) || session is null)
+            {
+                return false;
+            }
+
+            return session.CaptureBgra(ref buffer, out width, out height);
+        }
+    }
+
+    private static string SessionKey(PhysicalMonitorInfo monitor) =>
+        $"{monitor.X},{monitor.Y},{monitor.Width},{monitor.Height}";
+
+    private static bool TryGetSession(string key, PhysicalMonitorInfo monitor, out OutputSession? session)
+    {
+        if (!Sessions.TryGetValue(key, out session) || session.NeedsRecreate)
+        {
+            session?.Dispose();
+            session = OutputSession.TryCreate(monitor);
+            if (session is null)
+            {
+                Sessions.Remove(key);
+                return false;
+            }
+
+            Sessions[key] = session;
+        }
+
+        return true;
     }
 
     public static void InvalidateAll()
@@ -67,6 +108,7 @@ public static class DxgiDesktopCapture
         private readonly ID3D11Texture2D _staging;
         private readonly int _width;
         private readonly int _height;
+        private byte[]? _bgraBuffer;
 
         private static readonly FeatureLevel[] FeatureLevels =
         [
@@ -193,9 +235,46 @@ public static class DxgiDesktopCapture
 
         public Bitmap? Capture(int maxWidth, int maxHeight)
         {
-            if (NeedsRecreate)
+            if (!CaptureBgra(ref _bgraBuffer, out var width, out var height) || _bgraBuffer is null)
             {
                 return null;
+            }
+
+            var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var bmpData = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format32bppArgb);
+            try
+            {
+                var rowBytes = width * 4;
+                if (bmpData.Stride == rowBytes)
+                {
+                    Marshal.Copy(_bgraBuffer, 0, bmpData.Scan0, rowBytes * height);
+                }
+                else
+                {
+                    for (var y = 0; y < height; y++)
+                    {
+                        Marshal.Copy(_bgraBuffer, y * rowBytes, bmpData.Scan0 + (y * bmpData.Stride), rowBytes);
+                    }
+                }
+            }
+            finally
+            {
+                bitmap.UnlockBits(bmpData);
+            }
+
+            return ScaleIfNeeded(bitmap, maxWidth, maxHeight);
+        }
+
+        public bool CaptureBgra(ref byte[]? buffer, out int width, out int height)
+        {
+            width = 0;
+            height = 0;
+            if (NeedsRecreate)
+            {
+                return false;
             }
 
             var acquired = false;
@@ -205,13 +284,13 @@ public static class DxgiDesktopCapture
                 var result = _duplication.AcquireNextFrame(100, out _, out desktopResource);
                 if (result == DxgiResult.WaitTimeout)
                 {
-                    return null;
+                    return false;
                 }
 
                 if (result == DxgiResult.AccessLost || result.Failure)
                 {
                     NeedsRecreate = true;
-                    return null;
+                    return false;
                 }
 
                 acquired = true;
@@ -221,33 +300,31 @@ public static class DxgiDesktopCapture
                 var mapped = _device.ImmediateContext.Map(_staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
                 try
                 {
-                    var width = _width;
-                    var height = _height;
-                    var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-                    var bmpData = bitmap.LockBits(
-                        new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                        ImageLockMode.WriteOnly,
-                        PixelFormat.Format32bppArgb);
-
-                    try
+                    width = _width;
+                    height = _height;
+                    var rowBytes = width * 4;
+                    var byteCount = rowBytes * height;
+                    if (buffer is null || buffer.Length < byteCount)
                     {
-                        var srcPitch = (int)mapped.RowPitch;
-                        var dstPitch = bmpData.Stride;
-                        var rowBytes = Math.Min(srcPitch, dstPitch);
-
-                        var row = new byte[rowBytes];
-                        for (var y = 0; y < height; y++)
-                        {
-                            Marshal.Copy(mapped.DataPointer + (y * srcPitch), row, 0, rowBytes);
-                            Marshal.Copy(row, 0, bmpData.Scan0 + (y * dstPitch), rowBytes);
-                        }
-                    }
-                    finally
-                    {
-                        bitmap.UnlockBits(bmpData);
+                        buffer = new byte[byteCount];
                     }
 
-                    return ScaleIfNeeded(bitmap, maxWidth, maxHeight);
+                    var srcPitch = (int)mapped.RowPitch;
+                    for (var y = 0; y < height; y++)
+                    {
+                        Marshal.Copy(
+                            mapped.DataPointer + (y * srcPitch),
+                            buffer,
+                            y * rowBytes,
+                            rowBytes);
+                    }
+
+                    for (var i = 3; i < byteCount; i += 4)
+                    {
+                        buffer[i] = 255;
+                    }
+
+                    return true;
                 }
                 finally
                 {

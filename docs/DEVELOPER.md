@@ -188,9 +188,21 @@ Done / in progress:
 - [x] DXGI capture + dual/primary split  
 - [x] Helper UI + JSON modes  
 - [x] Tray preview + input inject  
+- [x] Smooth preview Faz 1: kalıcı DXGI BGRA + MMF/Bitmap reuse (daha az GC)  
 - [ ] Smart fullscreen (`WM_GETMINMAXINFO`)  
 - [ ] Auto display layout positioning  
 - [ ] Profiles / start with Windows  
+
+### Preview Faz 2 (henüz yok — milestone)
+
+Yüksek FPS’te ham BGRA MMF bellek bant genişliği sınırlar. RustDesk tarzı yol:
+
+1. Capture sonrası mümkün olduğunca GPU’da kal (system-mem Bitmap yok)
+2. HW encode: Media Foundation / NVENC / QSV
+3. Tray: PictureBox yerine D3D11 swapchain / hosted panel
+4. Yeni frame IPC (sequence, pts, codec); mevcut BGRA MMF desktop fallback kalabilir
+
+Bu faz ayrı milestone; Faz 1’e codec bağımlılığı eklenmez.
 
 Historical plan notes lived in `Virtual_Split_Monitor_Project_Plan.md` (now redirected here).
 

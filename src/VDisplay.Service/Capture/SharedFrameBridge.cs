@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.MemoryMappedFiles;
@@ -82,21 +83,30 @@ public sealed class SharedFrameBridge : IDisposable
         var dstW = Math.Min(width, SharedMemoryConstants.MaxFrameWidth);
         var dstH = Math.Min(height, SharedMemoryConstants.MaxFrameHeight);
         var rowPitch = dstW * 4;
+        var byteCount = rowPitch * dstH;
         var offset = monitorIndex * SharedMemoryConstants.FrameSize;
-
-        var rowBytes = dstW * 4;
         var srcPitch = width * 4;
-        for (var y = 0; y < dstH; y++)
+
+        var rented = ArrayPool<byte>.Shared.Rent(byteCount);
+        try
         {
-            var srcOffset = y * srcPitch;
-            var dstOffset = offset + (y * rowPitch);
-            var row = bgra.Slice(srcOffset, rowBytes).ToArray();
-            for (var i = 3; i < row.Length; i += 4)
+            for (var y = 0; y < dstH; y++)
             {
-                row[i] = 255;
+                var srcOffset = y * srcPitch;
+                var dstOffset = y * rowPitch;
+                bgra.Slice(srcOffset, rowPitch).CopyTo(rented.AsSpan(dstOffset, rowPitch));
             }
 
-            _framesView!.WriteArray(dstOffset, row, 0, row.Length);
+            for (var i = 3; i < byteCount; i += 4)
+            {
+                rented[i] = 255;
+            }
+
+            _framesView!.WriteArray(offset, rented, 0, byteCount);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rented);
         }
 
         var vmOffset = Marshal.OffsetOf<SharedLayoutHeader>("Vm0").ToInt32()
@@ -137,40 +147,43 @@ public sealed class SharedFrameBridge : IDisposable
         width = Math.Min(width, SharedMemoryConstants.MaxFrameWidth);
         height = Math.Min(height, SharedMemoryConstants.MaxFrameHeight);
 
-        var rowPitch = width * 4;
-        var offset = monitorIndex * SharedMemoryConstants.FrameSize;
-        var buffer = new byte[width * height * 4];
         var rowBytes = width * 4;
-
-        for (var y = 0; y < height; y++)
-        {
-            var row = new byte[rowBytes];
-            _framesView!.ReadArray(offset + (y * rowPitch), row, 0, rowBytes);
-            for (var i = 3; i < row.Length; i += 4)
-            {
-                row[i] = 255;
-            }
-
-            Buffer.BlockCopy(row, 0, buffer, y * rowBytes, rowBytes);
-        }
-
-        bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-        var rect = new Rectangle(0, 0, width, height);
-        var data = bitmap.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        var byteCount = rowBytes * height;
+        var offset = monitorIndex * SharedMemoryConstants.FrameSize;
+        var buffer = ArrayPool<byte>.Shared.Rent(byteCount);
         try
         {
-            for (var y = 0; y < height; y++)
+            _framesView!.ReadArray(offset, buffer, 0, byteCount);
+            for (var i = 3; i < byteCount; i += 4)
             {
-                System.Runtime.InteropServices.Marshal.Copy(
-                    buffer,
-                    y * rowBytes,
-                    data.Scan0 + (y * data.Stride),
-                    rowBytes);
+                buffer[i] = 255;
+            }
+
+            bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var rect = new Rectangle(0, 0, width, height);
+            var data = bitmap.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                if (data.Stride == rowBytes)
+                {
+                    Marshal.Copy(buffer, 0, data.Scan0, byteCount);
+                }
+                else
+                {
+                    for (var y = 0; y < height; y++)
+                    {
+                        Marshal.Copy(buffer, y * rowBytes, data.Scan0 + (y * data.Stride), rowBytes);
+                    }
+                }
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
             }
         }
         finally
         {
-            bitmap.UnlockBits(data);
+            ArrayPool<byte>.Shared.Return(buffer);
         }
 
         return true;

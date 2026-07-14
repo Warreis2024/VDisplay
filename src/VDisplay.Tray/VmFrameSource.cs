@@ -14,6 +14,7 @@ internal sealed class VmFrameSource : IDisposable
     private readonly PhysicalMonitorInfo _monitor;
     private readonly int _sharedIndex;
     private readonly SharedFrameReader? _sharedReader;
+    private Bitmap? _scaledBitmap;
 
     public VmFrameSource(PhysicalMonitorInfo monitor, int sharedIndex, bool useSharedMemory)
     {
@@ -32,52 +33,67 @@ internal sealed class VmFrameSource : IDisposable
         }
     }
 
-    public Bitmap? CaptureFrame(bool preview = false) =>
-        preview ? CapturePreview() : CaptureFull();
-
-    public Bitmap? CaptureThumbnail() => CapturePreview(ThumbnailMaxWidth);
-
-    private Bitmap? CaptureFull()
-    {
-        if (TrySharedFrame(out var shared))
-        {
-            return shared;
-        }
-
-        return ScreenCapture.CaptureMonitor(_monitor);
-    }
-
-    private Bitmap? CapturePreview(int maxWidth = PreviewMaxWidth)
-    {
-        // Shared memory = servisin yazdığı VM karesi (DXGI'dan ucuz, aynı çözünürlük).
-        if (TrySharedFrame(out var shared) && shared is not null)
-        {
-            return ScaleToMaxWidth(shared, maxWidth);
-        }
-
-        var desktop = ScreenCapture.CaptureMonitorPreview(_monitor, maxWidth);
-        if (desktop is not null)
-        {
-            return desktop;
-        }
-
-        return null;
-    }
-
-    private bool TrySharedFrame(out Bitmap? bitmap)
+    /// <summary>
+    /// ownedByCaller=false → SharedFrameReader / ölçek buffer'ı; Dispose etme, sadece Invalidate.
+    /// </summary>
+    public bool TryCaptureFrame(bool preview, out Bitmap? bitmap, out bool ownedByCaller)
     {
         bitmap = null;
-        if (_sharedReader?.TryReadFrameBitmap(_sharedIndex, out var shared) != true || shared is null)
+        ownedByCaller = true;
+
+        if (preview)
+        {
+            return TryCapturePreview(PreviewMaxWidth, out bitmap, out ownedByCaller);
+        }
+
+        if (TrySharedReusable(out bitmap))
+        {
+            ownedByCaller = false;
+            return true;
+        }
+
+        bitmap = ScreenCapture.CaptureMonitor(_monitor);
+        return bitmap is not null;
+    }
+
+    public bool TryCaptureThumbnail(out Bitmap? bitmap, out bool ownedByCaller) =>
+        TryCapturePreview(ThumbnailMaxWidth, out bitmap, out ownedByCaller);
+
+    public Bitmap? CaptureFrame(bool preview = false) =>
+        TryCaptureFrame(preview, out var bitmap, out _) ? bitmap : null;
+
+    public Bitmap? CaptureThumbnail() =>
+        TryCaptureThumbnail(out var bitmap, out _) ? bitmap : null;
+
+    private bool TryCapturePreview(int maxWidth, out Bitmap? bitmap, out bool ownedByCaller)
+    {
+        bitmap = null;
+        ownedByCaller = true;
+
+        if (TrySharedReusable(out var shared) && shared is not null)
+        {
+            bitmap = ScaleToMaxWidthReuse(shared, maxWidth);
+            ownedByCaller = false;
+            return true;
+        }
+
+        bitmap = ScreenCapture.CaptureMonitorPreview(_monitor, maxWidth);
+        return bitmap is not null;
+    }
+
+    private bool TrySharedReusable(out Bitmap? bitmap)
+    {
+        bitmap = null;
+        if (_sharedReader?.TryUpdateFrame(_sharedIndex) != true)
         {
             return false;
         }
 
-        // Sahte imleç yok — gerçek Windows imleci yeterli (çift cursor olmasın).
-        bitmap = shared;
-        return true;
+        bitmap = _sharedReader.CurrentBitmap;
+        return bitmap is not null;
     }
 
-    private static Bitmap ScaleToMaxWidth(Bitmap source, int maxWidth)
+    private Bitmap ScaleToMaxWidthReuse(Bitmap source, int maxWidth)
     {
         if (source.Width <= maxWidth)
         {
@@ -85,16 +101,25 @@ internal sealed class VmFrameSource : IDisposable
         }
 
         var dstH = Math.Max(1, (int)((double)source.Height * maxWidth / source.Width));
-        var scaled = new Bitmap(maxWidth, dstH, PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(scaled))
+        if (_scaledBitmap is null || _scaledBitmap.Width != maxWidth || _scaledBitmap.Height != dstH)
+        {
+            _scaledBitmap?.Dispose();
+            _scaledBitmap = new Bitmap(maxWidth, dstH, PixelFormat.Format32bppArgb);
+        }
+
+        using (var g = Graphics.FromImage(_scaledBitmap))
         {
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
             g.DrawImage(source, 0, 0, maxWidth, dstH);
         }
 
-        source.Dispose();
-        return scaled;
+        return _scaledBitmap;
     }
 
-    public void Dispose() => _sharedReader?.Dispose();
+    public void Dispose()
+    {
+        _scaledBitmap?.Dispose();
+        _scaledBitmap = null;
+        _sharedReader?.Dispose();
+    }
 }

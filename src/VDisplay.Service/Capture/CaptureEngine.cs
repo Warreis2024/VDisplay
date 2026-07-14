@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using VDisplay.Capture;
 using VDisplay.Core.Models;
@@ -11,6 +12,7 @@ public sealed class CaptureEngine : IDisposable
 {
     private readonly PhysicalMonitorProvider _monitorProvider;
     private PhysicalMonitorInfo? _sourceMonitor;
+    private byte[]? _frameBuffer;
 
     public CaptureEngine(PhysicalMonitorProvider monitorProvider)
     {
@@ -44,32 +46,48 @@ public sealed class CaptureEngine : IDisposable
         width = _sourceMonitor.Width;
         height = _sourceMonitor.Height;
 
-        using var bitmap = DxgiDesktopCapture.TryCapture(_sourceMonitor)
-            ?? CaptureWithGdi(_sourceMonitor);
+        if (DxgiDesktopCapture.TryCaptureBgra(_sourceMonitor, ref _frameBuffer, out var dxgiW, out var dxgiH)
+            && _frameBuffer is not null
+            && dxgiW > 0
+            && dxgiH > 0)
+        {
+            width = dxgiW;
+            height = dxgiH;
+            return _frameBuffer;
+        }
 
+        using var bitmap = CaptureWithGdi(_sourceMonitor);
         if (bitmap is null)
         {
             return [];
         }
 
-        var bytes = new byte[width * height * 4];
+        width = bitmap.Width;
+        height = bitmap.Height;
+        var byteCount = width * height * 4;
+        if (_frameBuffer is null || _frameBuffer.Length < byteCount)
+        {
+            _frameBuffer = new byte[byteCount];
+        }
+
         var rect = new Rectangle(0, 0, width, height);
         var data = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
         try
         {
             var stride = data.Stride;
+            var rowBytes = width * 4;
             for (var y = 0; y < height; y++)
             {
-                System.Runtime.InteropServices.Marshal.Copy(
+                Marshal.Copy(
                     data.Scan0 + (y * stride),
-                    bytes,
-                    y * width * 4,
-                    width * 4);
+                    _frameBuffer,
+                    y * rowBytes,
+                    rowBytes);
             }
 
-            for (var i = 3; i < bytes.Length; i += 4)
+            for (var i = 3; i < byteCount; i += 4)
             {
-                bytes[i] = 255;
+                _frameBuffer[i] = 255;
             }
         }
         finally
@@ -77,7 +95,7 @@ public sealed class CaptureEngine : IDisposable
             bitmap.UnlockBits(data);
         }
 
-        return bytes;
+        return _frameBuffer;
     }
 
     public static byte[] CropBgra(ReadOnlySpan<byte> source, int sourceWidth, int sourceHeight, RegionRect crop)
@@ -163,5 +181,6 @@ public sealed class CaptureEngine : IDisposable
 
     public void Dispose()
     {
+        _frameBuffer = null;
     }
 }

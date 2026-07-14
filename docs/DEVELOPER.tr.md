@@ -163,9 +163,19 @@ Son kullanıcı: [END_USER.tr.md](END_USER.tr.md)
 - [x] DXGI + dual/primary  
 - [x] Yardımcı + JSON modlar  
 - [x] Tray + giriş enjeksiyonu  
+- [x] Akıcı önizleme Faz 1: kalıcı DXGI BGRA + MMF/Bitmap reuse  
 - [ ] Smart fullscreen  
 - [ ] Otomatik ekran yerleşimi  
 - [ ] Profiller / Windows ile başlat  
+
+### Önizleme Faz 2 (henüz yok)
+
+Yüksek FPS’te BGRA MMF bant genişliği sınırlar. Ayrı milestone:
+
+1. Capture sonrası GPU’da kal  
+2. HW encode (MF / NVENC / QSV)  
+3. Tray’de D3D11 swapchain  
+4. Yeni codec IPC; eski BGRA MMF fallback  
 
 Eski plan: `Virtual_Split_Monitor_Project_Plan.md` → bu belgeye yönlendirildi.  
 Kavram karşılaştırması: `Windows_Sanal_Masaustu_vs_Sanal_Monitor.md` → README.
