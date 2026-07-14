@@ -1,8 +1,8 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using VDisplay.Core.Interop;
 using VDisplay.Core.Models;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -10,6 +10,14 @@ using Vortice.DXGI;
 using DxgiResult = Vortice.DXGI.ResultCode;
 
 namespace VDisplay.Capture;
+
+public readonly record struct SharedCapturePublish(
+    int SourceMonitorIndex,
+    long AdapterLuid,
+    long SharedHandle,
+    int Width,
+    int Height,
+    long Sequence);
 
 [SupportedOSPlatform("windows")]
 public static class DxgiDesktopCapture
@@ -36,17 +44,27 @@ public static class DxgiDesktopCapture
         }
     }
 
-    /// <summary>
-    /// Staging texture → BGRA bytes (ara Bitmap yok). buffer gerekirse yeniden boyutlanır.
-    /// </summary>
     public static bool TryCaptureBgra(
         PhysicalMonitorInfo monitor,
         ref byte[]? buffer,
         out int width,
-        out int height)
+        out int height) =>
+        TryCaptureBgraAndShare(monitor, sourceMonitorIndex: monitor.Index, ref buffer, out width, out height, out _);
+
+    /// <summary>
+    /// DXGI karesini NT shared texture'a kopyalar (Tray D3D) ve BGRA okur (MMF fallback/mini).
+    /// </summary>
+    public static bool TryCaptureBgraAndShare(
+        PhysicalMonitorInfo monitor,
+        int sourceMonitorIndex,
+        ref byte[]? buffer,
+        out int width,
+        out int height,
+        out SharedCapturePublish? publish)
     {
         width = 0;
         height = 0;
+        publish = null;
         if (monitor.Width <= 0 || monitor.Height <= 0)
         {
             return false;
@@ -60,7 +78,7 @@ public static class DxgiDesktopCapture
                 return false;
             }
 
-            return session.CaptureBgra(ref buffer, out width, out height);
+            return session.CaptureBgraAndShare(sourceMonitorIndex, ref buffer, out width, out height, out publish);
         }
     }
 
@@ -106,9 +124,13 @@ public static class DxgiDesktopCapture
         private readonly ID3D11Device _device;
         private readonly IDXGIOutputDuplication _duplication;
         private readonly ID3D11Texture2D _staging;
+        private readonly ID3D11Texture2D _shared;
+        private readonly long _adapterLuid;
         private readonly int _width;
         private readonly int _height;
+        private IntPtr _sharedNtHandle;
         private byte[]? _bgraBuffer;
+        private long _sequence;
 
         private static readonly FeatureLevel[] FeatureLevels =
         [
@@ -126,6 +148,8 @@ public static class DxgiDesktopCapture
             ID3D11Device device,
             IDXGIOutputDuplication duplication,
             ID3D11Texture2D staging,
+            ID3D11Texture2D shared,
+            long adapterLuid,
             int width,
             int height)
         {
@@ -135,6 +159,8 @@ public static class DxgiDesktopCapture
             _device = device;
             _duplication = duplication;
             _staging = staging;
+            _shared = shared;
+            _adapterLuid = adapterLuid;
             _width = width;
             _height = height;
         }
@@ -163,12 +189,11 @@ public static class DxgiDesktopCapture
                         continue;
                     }
 
-                    var featureLevels = FeatureLevels;
                     var result = D3D11.D3D11CreateDevice(
                         adapter1,
                         DriverType.Unknown,
                         DeviceCreationFlags.BgraSupport,
-                        featureLevels,
+                        FeatureLevels,
                         out var device);
 
                     if (result.Failure || device is null)
@@ -214,6 +239,34 @@ public static class DxgiDesktopCapture
                         continue;
                     }
 
+                    var sharedDesc = new Texture2DDescription
+                    {
+                        CPUAccessFlags = CpuAccessFlags.None,
+                        BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
+                        Format = Format.B8G8R8A8_UNorm,
+                        Width = (uint)width,
+                        Height = (uint)height,
+                        MipLevels = 1,
+                        ArraySize = 1,
+                        SampleDescription = new SampleDescription(1, 0),
+                        Usage = ResourceUsage.Default,
+                        MiscFlags = ResourceOptionFlags.Shared | ResourceOptionFlags.SharedNTHandle
+                    };
+
+                    var shared = device.CreateTexture2D(sharedDesc);
+                    if (shared is null)
+                    {
+                        staging.Dispose();
+                        duplication.Dispose();
+                        device.Dispose();
+                        output1.Dispose();
+                        output.Dispose();
+                        continue;
+                    }
+
+                    var adapterDesc = adapter1.Description1;
+                    var luid = ((long)(uint)adapterDesc.Luid.HighPart << 32) | (uint)adapterDesc.Luid.LowPart;
+
                     output.Dispose();
                     return new OutputSession(
                         monitor,
@@ -222,6 +275,8 @@ public static class DxgiDesktopCapture
                         device,
                         duplication,
                         staging,
+                        shared,
+                        luid,
                         width,
                         height);
                 }
@@ -235,7 +290,8 @@ public static class DxgiDesktopCapture
 
         public Bitmap? Capture(int maxWidth, int maxHeight)
         {
-            if (!CaptureBgra(ref _bgraBuffer, out var width, out var height) || _bgraBuffer is null)
+            if (!CaptureBgraAndShare(_monitor.Index, ref _bgraBuffer, out var width, out var height, out _)
+                || _bgraBuffer is null)
             {
                 return null;
             }
@@ -268,14 +324,22 @@ public static class DxgiDesktopCapture
             return ScaleIfNeeded(bitmap, maxWidth, maxHeight);
         }
 
-        public bool CaptureBgra(ref byte[]? buffer, out int width, out int height)
+        public bool CaptureBgraAndShare(
+            int sourceMonitorIndex,
+            ref byte[]? buffer,
+            out int width,
+            out int height,
+            out SharedCapturePublish? publish)
         {
             width = 0;
             height = 0;
+            publish = null;
             if (NeedsRecreate)
             {
                 return false;
             }
+
+            EnsureSharedHandle();
 
             var acquired = false;
             IDXGIResource? desktopResource = null;
@@ -295,6 +359,7 @@ public static class DxgiDesktopCapture
 
                 acquired = true;
                 using var desktopTexture = desktopResource.QueryInterface<ID3D11Texture2D>();
+                _device.ImmediateContext.CopyResource(_shared, desktopTexture);
                 _device.ImmediateContext.CopyResource(_staging, desktopTexture);
 
                 var mapped = _device.ImmediateContext.Map(_staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
@@ -324,6 +389,18 @@ public static class DxgiDesktopCapture
                         buffer[i] = 255;
                     }
 
+                    _sequence++;
+                    if (_sharedNtHandle != IntPtr.Zero)
+                    {
+                        publish = new SharedCapturePublish(
+                            sourceMonitorIndex,
+                            _adapterLuid,
+                            _sharedNtHandle.ToInt64(),
+                            width,
+                            height,
+                            _sequence);
+                    }
+
                     return true;
                 }
                 finally
@@ -337,6 +414,27 @@ public static class DxgiDesktopCapture
                 {
                     _duplication.ReleaseFrame();
                 }
+            }
+        }
+
+        private void EnsureSharedHandle()
+        {
+            if (_sharedNtHandle != IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                using var resource1 = _shared.QueryInterface<IDXGIResource1>();
+                _sharedNtHandle = resource1.CreateSharedHandle(
+                    null,
+                    Vortice.DXGI.SharedResourceFlags.Read | Vortice.DXGI.SharedResourceFlags.Write,
+                    null);
+            }
+            catch
+            {
+                _sharedNtHandle = IntPtr.Zero;
             }
         }
 
@@ -375,11 +473,21 @@ public static class DxgiDesktopCapture
 
         public void Dispose()
         {
+            if (_sharedNtHandle != IntPtr.Zero)
+            {
+                CloseHandle(_sharedNtHandle);
+                _sharedNtHandle = IntPtr.Zero;
+            }
+
+            _shared.Dispose();
             _staging.Dispose();
             _duplication.Dispose();
             _device.Dispose();
             _output.Dispose();
             _adapter.Dispose();
         }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
     }
 }

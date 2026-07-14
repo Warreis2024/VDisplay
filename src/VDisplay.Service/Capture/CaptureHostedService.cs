@@ -11,6 +11,7 @@ public sealed class CaptureHostedService : BackgroundService
     private readonly ILogger<CaptureHostedService> _logger;
     private readonly CaptureEngine _captureEngine;
     private readonly SharedFrameBridge _sharedFrameBridge;
+    private readonly SharedGpuFrameBridge _gpuFrameBridge;
     private readonly LayoutManager _layoutManager;
     private readonly Monitor.MonitorManager _monitorManager;
     private readonly DriverInstaller _driverInstaller;
@@ -22,6 +23,7 @@ public sealed class CaptureHostedService : BackgroundService
         ILogger<CaptureHostedService> logger,
         CaptureEngine captureEngine,
         SharedFrameBridge sharedFrameBridge,
+        SharedGpuFrameBridge gpuFrameBridge,
         LayoutManager layoutManager,
         Monitor.MonitorManager monitorManager,
         DriverInstaller driverInstaller)
@@ -29,6 +31,7 @@ public sealed class CaptureHostedService : BackgroundService
         _logger = logger;
         _captureEngine = captureEngine;
         _sharedFrameBridge = sharedFrameBridge;
+        _gpuFrameBridge = gpuFrameBridge;
         _layoutManager = layoutManager;
         _monitorManager = monitorManager;
         _driverInstaller = driverInstaller;
@@ -47,6 +50,7 @@ public sealed class CaptureHostedService : BackgroundService
     {
         _captureRequested = false;
         _sharedFrameBridge.SetCaptureActive(false);
+        _gpuFrameBridge.SetCaptureActive(false);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,6 +69,7 @@ public sealed class CaptureHostedService : BackgroundService
             try
             {
                 _sharedFrameBridge.EnsureCreated();
+                _gpuFrameBridge.EnsureCreated();
                 _monitorManager.RefreshVirtualMonitorMapping();
                 var layout = _monitorManager.GetActiveLayout();
                 if (layout is null || layout.Regions.Count == 0)
@@ -83,7 +88,7 @@ public sealed class CaptureHostedService : BackgroundService
                 foreach (var group in sourceGroups)
                 {
                     _captureEngine.SetSourceMonitor(group.Key);
-                    var frame = _captureEngine.CaptureFullFrame(out var width, out var height);
+                    var frame = _captureEngine.CaptureFullFrame(group.Key, out var width, out var height);
                     if (frame.Length == 0)
                     {
                         continue;

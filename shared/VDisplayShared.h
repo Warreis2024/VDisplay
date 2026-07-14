@@ -30,7 +30,31 @@ struct VDisplayVirtualRegion
     UINT SrcH;
     UINT DstW;
     UINT DstH;
+    INT SourceMonitorIndex;
     volatile LONG FrameReady;
+};
+
+#define VDISPLAY_GPU_FRAMES_MAP_NAME L"Local\\VDisplay.GpuFrames"
+
+struct VDisplayGpuSourceSlot
+{
+    LONGLONG Sequence;
+    LONGLONG AdapterLuid;
+    LONGLONG SharedHandle;
+    INT Width;
+    INT Height;
+    volatile LONG Ready;
+    INT SourceMonitorIndex;
+    INT ProducerProcessId;
+};
+
+struct VDisplaySharedGpuFrames
+{
+    volatile LONG Version;
+    volatile LONG CaptureActive;
+    INT SourceCount;
+    INT Reserved;
+    VDisplayGpuSourceSlot Slot[VDISPLAY_MAX_VM];
 };
 
 struct VDisplaySharedLayout

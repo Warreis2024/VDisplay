@@ -73,8 +73,27 @@ Preview uygulaması ile tüm sanal monitörleri tek ekrandan yönetmek, sistemi 
 - Uygulamalar bu monitörlere taşınabilir.
 - Teams, OBS, PowerPoint vb. bunları gerçek monitör olarak algılar.
 - Preview ile tüm sanal monitörler masaüstünde istenen boyutta yönetilebilir.
+- Tray **büyük önizleme**: aynı PC’de düşük gecikmeli **D3D11 NT shared texture**; mini ikonlar BGRA paylaşımlı bellek kullanır.
 
 ---
+
+## Önizleme yığını (geliştiriciler)
+
+Akıcı preview iki fazda geldi. Ayrıntı: [docs/DEVELOPER.tr.md](docs/DEVELOPER.tr.md).
+
+| Faz | Teknik | Amaç |
+|-----|--------|------|
+| **Faz 1** | DXGI → BGRA (ara `Bitmap` yok), pooled/reuse buffer, Tray’de kalıcı `Bitmap` + `LockBits` / `Invalidate` | Kare başına GC’yi düşür; `Local\VDisplay.Frames` ile ~60 FPS full preview |
+| **Faz 2** | DXGI duplication → **D3D11 NT shared texture** → Tray `D3DPreviewPanel` (swapchain + UV crop) | Full preview GPU’da kalsın; her karede BGRA kopyalamaktan kaçın |
+
+**Haritalar**
+
+- `Local\VDisplay.Layout` — capture + VM `Src*` / `Dst*` (+ `SourceMonitorIndex`)
+- `Local\VDisplay.Frames` — BGRA (mini 2s + PictureBox **fallback**)
+- `Local\VDisplay.GpuFrames` — handle / LUID / sequence / producer PID (piksel yok)
+
+**Faz 2 notları:** üretici `CreateSharedHandle` + tüketici `DuplicateHandle` → `OpenSharedResource1`; adapter LUID eşleşmeli; crop layout’tan UV. GPU açılamazsa Tray Faz 1 BGRA’ya düşer. HW encode (MF/NVENC) **sonraki** milestone (uzak/sıkıştırılmış); local için gerekli değil.
+
 
 ## Potansiyel kullanım alanları
 
@@ -165,4 +184,4 @@ Ayrıntılar: [LICENSE](LICENSE). Ticari sorular için GitHub Issue veya yazar i
 
 ## Durum
 
-Windows 10/11 · .NET 8 · IDD (WDK) · DXGI · Yardımcı + Tray + CLI.
+Windows 10/11 · .NET 8 · IDD (WDK) · DXGI Desktop Duplication · D3D11 shared texture önizleme · Yardımcı + Tray + CLI.

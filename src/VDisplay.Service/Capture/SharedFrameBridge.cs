@@ -58,6 +58,7 @@ public sealed class SharedFrameBridge : IDisposable
                 SrcH = (uint)region.Source.Height,
                 DstW = (uint)region.Destination.Width,
                 DstH = (uint)region.Destination.Height,
+                SourceMonitorIndex = region.SourceMonitorIndex,
                 FrameReady = 0
             });
         }

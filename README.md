@@ -73,8 +73,27 @@ The preview app lets you view and manage all virtual monitors from one screen, w
 - Apps can be moved to these monitors.
 - Teams, OBS, PowerPoint, etc. treat them as real monitors.
 - With the preview app, all virtual monitors can be shown and managed on the desktop at the size you want.
+- Tray **full preview** uses a low-latency **D3D11 NT shared texture** path (same-PC); mini thumbs still use BGRA shared memory.
 
 ---
+
+## Preview stack (developers)
+
+Smooth preview was shipped in two phases. Details: [docs/DEVELOPER.md](docs/DEVELOPER.md).
+
+| Phase | Technique | Purpose |
+|-------|-----------|---------|
+| **Faz 1** | DXGI → BGRA (no intermediate `Bitmap`), pooled/reused buffers, Tray reusable `Bitmap` + `LockBits` / `Invalidate` | Cut per-frame GC; keep `Local\VDisplay.Frames` ~60 FPS full preview |
+| **Faz 2** | DXGI desktop duplication → **D3D11 NT shared texture** → Tray `D3DPreviewPanel` (swapchain + UV crop) | Same-PC full preview stays on GPU; less CPU/memory bandwidth than pumping BGRA for every frame |
+
+**Maps**
+
+- `Local\VDisplay.Layout` — capture active + per-VM `Src*` / `Dst*` (+ `SourceMonitorIndex`)
+- `Local\VDisplay.Frames` — BGRA pixels (mini 2s thumbs + PictureBox **fallback**)
+- `Local\VDisplay.GpuFrames` — handle / LUID / sequence / producer PID (no pixels)
+
+**Faz 2 notes:** producer `CreateSharedHandle` + consumer `DuplicateHandle` → `OpenSharedResource1`; match adapter LUID; UV crop from layout. If GPU open fails, Tray falls back to Faz 1 BGRA. HW encode (MF/NVENC) is a **later** milestone (remote / compressed), not required for local preview.
+
 
 ## Potential use cases
 
@@ -166,4 +185,4 @@ See [LICENSE](LICENSE) for full terms. Commercial inquiries: open a GitHub Issue
 
 ## Status
 
-Windows 10/11 · .NET 8 · IDD (WDK) · DXGI · Helper + Tray + CLI.
+Windows 10/11 · .NET 8 · IDD (WDK) · DXGI Desktop Duplication · D3D11 shared texture preview · Helper + Tray + CLI.

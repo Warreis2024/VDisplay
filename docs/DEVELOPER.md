@@ -189,20 +189,43 @@ Done / in progress:
 - [x] Helper UI + JSON modes  
 - [x] Tray preview + input inject  
 - [x] Smooth preview Faz 1: kalıcı DXGI BGRA + MMF/Bitmap reuse (daha az GC)  
+- [x] Smooth preview Faz 2 local: D3D11 NT shared texture → Tray D3D present  
 - [ ] Smart fullscreen (`WM_GETMINMAXINFO`)  
 - [ ] Auto display layout positioning  
 - [ ] Profiles / start with Windows  
 
-### Preview Faz 2 (henüz yok — milestone)
+### Preview transport
 
-Yüksek FPS’te ham BGRA MMF bellek bant genişliği sınırlar. RustDesk tarzı yol:
+| Path | Role |
+|------|------|
+| `Local\VDisplay.Layout` | Capture flag + per-VM crop (`Src*`/`Dst*`, `SourceMonitorIndex`) |
+| `Local\VDisplay.Frames` BGRA MMF | Mini thumbs (≈2s) + PictureBox fallback |
+| `Local\VDisplay.GpuFrames` | NT shared-handle metadata (sequence, LUID, producer PID) — **no pixels** |
 
-1. Capture sonrası mümkün olduğunca GPU’da kal (system-mem Bitmap yok)
+### Faz 1 — reusable BGRA path
+
+- Service: `DxgiDesktopCapture.TryCaptureBgra` → staging → bytes (no GDI `Bitmap` on the hot path); `SharedFrameBridge.WriteFrame` uses `ArrayPool` + one `WriteArray` (no per-row `ToArray`).
+- Tray: `SharedFrameReader` reuses `byte[]` + one `Bitmap`; `VmPreviewForm` updates in place + `Invalidate`; mini reuses 88×66 bitmap.
+- Code: `DxgiDesktopCapture`, `CaptureEngine`, `SharedFrameBridge`, `SharedFrameReader`, `VmFrameSource`.
+
+### Faz 2 — D3D11 NT shared texture (local full preview)
+
+- Per **source monitor**: DEFAULT texture with `Shared | SharedNTHandle`; after `AcquireNextFrame`, `CopyResource` into it **and** into staging (BGRA still written for mini/fallback).
+- Publish slot via `SharedGpuFrameBridge` (`CreateSharedHandle` value + `Environment.ProcessId` + adapter LUID + sequence).
+- Tray `D3DPreviewPanel`: `DuplicateHandle` from producer → `ID3D11Device1.OpenSharedResource1` → swapchain present; UV crop from layout `Src*`.
+- Fail open → stay on Faz 1 BGRA after retries.
+- Code: `SharedGpuFrameBridge`, `SharedGpuFrameReader`, `D3DPreviewPanel`, `VmPreviewForm`.
+
+### Preview encode (ileride — ayrı milestone)
+
+Yüksek FPS’te uzak/sıkıştırılmış taşıma gerekirse:
+
+1. Capture sonrası mümkün olduğunca GPU’da kal
 2. HW encode: Media Foundation / NVENC / QSV
-3. Tray: PictureBox yerine D3D11 swapchain / hosted panel
-4. Yeni frame IPC (sequence, pts, codec); mevcut BGRA MMF desktop fallback kalabilir
+3. Tray: decode + D3D present
+4. Yeni frame IPC (sequence, pts, codec); BGRA MMF fallback kalabilir
 
-Bu faz ayrı milestone; Faz 1’e codec bağımlılığı eklenmez.
+Local preview için encode şart değil (shared texture tercih).
 
 Historical plan notes lived in `Virtual_Split_Monitor_Project_Plan.md` (now redirected here).
 

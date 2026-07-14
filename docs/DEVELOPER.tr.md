@@ -164,18 +164,34 @@ Son kullanıcı: [END_USER.tr.md](END_USER.tr.md)
 - [x] Yardımcı + JSON modlar  
 - [x] Tray + giriş enjeksiyonu  
 - [x] Akıcı önizleme Faz 1: kalıcı DXGI BGRA + MMF/Bitmap reuse  
+- [x] Akıcı önizleme Faz 2 local: D3D11 NT shared texture → Tray D3D  
 - [ ] Smart fullscreen  
 - [ ] Otomatik ekran yerleşimi  
 - [ ] Profiller / Windows ile başlat  
 
-### Önizleme Faz 2 (henüz yok)
+### Önizleme taşıma
 
-Yüksek FPS’te BGRA MMF bant genişliği sınırlar. Ayrı milestone:
+| Yol | Rol |
+|-----|-----|
+| `Local\VDisplay.Layout` | Capture + VM crop (`Src*`/`Dst*`, `SourceMonitorIndex`) |
+| `Local\VDisplay.Frames` BGRA | Mini (~2s) + PictureBox fallback |
+| `Local\VDisplay.GpuFrames` | NT shared-handle meta (sequence, LUID, producer PID) — piksel yok |
 
-1. Capture sonrası GPU’da kal  
-2. HW encode (MF / NVENC / QSV)  
-3. Tray’de D3D11 swapchain  
-4. Yeni codec IPC; eski BGRA MMF fallback  
+### Faz 1 — kalıcı BGRA yolu
+
+- Servis: `TryCaptureBgra` (ara Bitmap yok); `WriteFrame` → `ArrayPool` + tek `WriteArray`.
+- Tray: reuse `Bitmap` / `LockBits` / `Invalidate`; mini 88×66 reuse.
+- Kod: `DxgiDesktopCapture`, `CaptureEngine`, `SharedFrameBridge`, `SharedFrameReader`, `VmFrameSource`.
+
+### Faz 2 — D3D11 NT shared texture (local full preview)
+
+- Kaynak monitör başına `Shared|SharedNTHandle` texture; DXGI sonrası hem shared hem staging.
+- Meta: `SharedGpuFrameBridge` (handle + PID + LUID + sequence).
+- Tray `D3DPreviewPanel`: `DuplicateHandle` → `OpenSharedResource1` → swapchain; UV crop layout’tan.
+- Açılamazsa Faz 1 BGRA.
+- Kod: `SharedGpuFrameBridge`, `SharedGpuFrameReader`, `D3DPreviewPanel`, `VmPreviewForm`.
+
+HW encode (MF/NVENC) uzak/sıkıştırılmış taşıma için ayrı milestone; local için shared texture yeterli.
 
 Eski plan: `Virtual_Split_Monitor_Project_Plan.md` → bu belgeye yönlendirildi.  
 Kavram karşılaştırması: `Windows_Sanal_Masaustu_vs_Sanal_Monitor.md` → README.

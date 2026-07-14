@@ -11,6 +11,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddSingleton<PhysicalMonitorProvider>();
 builder.Services.AddSingleton<LayoutManager>();
 builder.Services.AddSingleton<SharedFrameBridge>();
+builder.Services.AddSingleton<SharedGpuFrameBridge>();
 builder.Services.AddSingleton<CaptureEngine>();
 builder.Services.AddSingleton<DriverInstaller>();
 builder.Services.AddSingleton<MonitorManager>();

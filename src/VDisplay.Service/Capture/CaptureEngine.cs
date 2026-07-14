@@ -11,12 +11,14 @@ namespace VDisplay.Service.Capture;
 public sealed class CaptureEngine : IDisposable
 {
     private readonly PhysicalMonitorProvider _monitorProvider;
+    private readonly SharedGpuFrameBridge _gpuFrames;
     private PhysicalMonitorInfo? _sourceMonitor;
     private byte[]? _frameBuffer;
 
-    public CaptureEngine(PhysicalMonitorProvider monitorProvider)
+    public CaptureEngine(PhysicalMonitorProvider monitorProvider, SharedGpuFrameBridge gpuFrames)
     {
         _monitorProvider = monitorProvider;
+        _gpuFrames = gpuFrames;
     }
 
     public void SetSourceMonitor(int index)
@@ -29,11 +31,14 @@ public sealed class CaptureEngine : IDisposable
 
     public PhysicalMonitorInfo? SourceMonitor => _sourceMonitor;
 
-    public byte[] CaptureFullFrame(out int width, out int height)
+    public byte[] CaptureFullFrame(out int width, out int height) =>
+        CaptureFullFrame(_sourceMonitor?.Index ?? 0, out width, out height);
+
+    public byte[] CaptureFullFrame(int sourceMonitorIndex, out int width, out int height)
     {
         if (_sourceMonitor is null)
         {
-            SetSourceMonitor(0);
+            SetSourceMonitor(sourceMonitorIndex);
         }
 
         if (_sourceMonitor is null)
@@ -46,13 +51,30 @@ public sealed class CaptureEngine : IDisposable
         width = _sourceMonitor.Width;
         height = _sourceMonitor.Height;
 
-        if (DxgiDesktopCapture.TryCaptureBgra(_sourceMonitor, ref _frameBuffer, out var dxgiW, out var dxgiH)
+        if (DxgiDesktopCapture.TryCaptureBgraAndShare(
+                _sourceMonitor,
+                sourceMonitorIndex,
+                ref _frameBuffer,
+                out var dxgiW,
+                out var dxgiH,
+                out var publish)
             && _frameBuffer is not null
             && dxgiW > 0
             && dxgiH > 0)
         {
             width = dxgiW;
             height = dxgiH;
+            if (publish is { } p)
+            {
+                _gpuFrames.Publish(
+                    p.SourceMonitorIndex,
+                    p.AdapterLuid,
+                    p.SharedHandle,
+                    p.Width,
+                    p.Height,
+                    p.Sequence);
+            }
+
             return _frameBuffer;
         }
 
